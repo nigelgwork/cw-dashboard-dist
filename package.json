@@ -1,6 +1,6 @@
 {
   "name": "cw-dashboard",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "CW Dashboard - ConnectWise Project and Opportunity Tracker",
   "main": "dist-electron/main.js",
   "author": "Gaskony",
@@ -62,7 +62,8 @@
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "artifactName": "CW-Dashboard-Setup-${version}.${ext}"
     },
     "publish": {
       "provider": "github",
