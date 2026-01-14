@@ -19,6 +19,23 @@ import { useToast } from '../../context/ToastContext';
 
 type SettingsTab = 'feeds' | 'sync' | 'updates' | 'about';
 
+// Strip HTML tags and convert to readable text
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<li>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 interface UpdateState {
   checking: boolean;
   available: boolean;
@@ -352,7 +369,7 @@ export default function SettingsPanel() {
                               Update Available: v{updateState.version}
                             </h4>
                             {updateState.releaseNotes && (
-                              <p className="text-xs text-gray-400">{updateState.releaseNotes}</p>
+                              <p className="text-xs text-gray-400 whitespace-pre-line">{stripHtml(updateState.releaseNotes)}</p>
                             )}
                           </div>
                           <button

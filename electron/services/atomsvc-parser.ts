@@ -3,7 +3,7 @@ import { parseStringPromise } from 'xml2js';
 export interface ParsedAtomFeed {
   name: string;
   feedUrl: string;
-  feedType: 'PROJECTS' | 'OPPORTUNITIES';
+  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
 }
 
 /**
@@ -84,8 +84,16 @@ function decodeAtomUrl(url: string): string {
 /**
  * Detect feed type based on URL content
  */
-function detectFeedType(url: string): 'PROJECTS' | 'OPPORTUNITIES' {
+function detectFeedType(url: string): 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' {
   const lowerUrl = url.toLowerCase();
+
+  // Check for service tickets patterns first (more specific)
+  if (lowerUrl.includes('ticket') || lowerUrl.includes('service') ||
+      lowerUrl.includes('helpdesk') || lowerUrl.includes('support') ||
+      lowerUrl.includes('incident') || lowerUrl.includes('sr ') ||
+      lowerUrl.includes('sr%20') || lowerUrl.includes('service%20')) {
+    return 'SERVICE_TICKETS';
+  }
 
   if (lowerUrl.includes('project') || lowerUrl.includes('pm ') || lowerUrl.includes('project%20')) {
     return 'PROJECTS';
