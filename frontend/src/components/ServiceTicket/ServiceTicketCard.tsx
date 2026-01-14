@@ -30,12 +30,12 @@ export default function ServiceTicketCard({ ticket, isPinned, onTogglePin, alway
   return (
     <div
       onClick={handleClick}
-      className={`bg-board-bg border border-board-border border-l-4 ${statusColors.border} ${statusColors.bg} rounded px-2 py-1.5 ${!alwaysExpanded ? 'cursor-pointer hover:bg-board-border/30' : ''} transition-all`}
+      className={`bg-board-bg border border-board-border border-l-4 ${statusColors.border} ${statusColors.bg} rounded px-2 py-1.5 overflow-hidden ${!alwaysExpanded ? 'cursor-pointer hover:bg-board-border/30' : ''} transition-all`}
     >
       {/* Row 1: Ticket number, Pin, and Priority */}
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-mono text-gray-500">#{ticket.externalId}</span>
-        <span className="text-[13px] font-semibold text-white truncate flex-1">
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-[10px] font-mono text-gray-500 flex-shrink-0">#{ticket.externalId}</span>
+        <span className="text-[13px] font-semibold text-white truncate flex-1 min-w-0">
           {ticket.companyName || 'No Company'}
         </span>
         {onTogglePin && (
@@ -62,26 +62,26 @@ export default function ServiceTicketCard({ ticket, isPinned, onTogglePin, alway
       </div>
 
       {/* Row 2: Summary */}
-      <div className="mt-0.5">
+      <div className="mt-0.5 min-w-0">
         <span className="text-xs text-gray-400 truncate block">
           {ticket.summary || 'No summary'}
         </span>
       </div>
 
       {/* Row 3: Status and Assigned To */}
-      <div className="flex items-center gap-2 mt-1">
+      <div className="flex items-center gap-2 mt-1 min-w-0">
         {ticket.status && (
-          <span className={`text-[10px] px-1.5 py-0.5 rounded bg-board-border ${statusColors.text}`}>
+          <span className={`text-[10px] px-1.5 py-0.5 rounded bg-board-border flex-shrink-0 ${statusColors.text}`}>
             {ticket.status}
           </span>
         )}
         {ticket.assignedTo && (
-          <span className="text-[10px] text-gray-500 truncate">
+          <span className="text-[10px] text-gray-500 truncate flex-1 min-w-0">
             {ticket.assignedTo}
           </span>
         )}
         {ticket.hoursRemaining !== undefined && ticket.hoursRemaining !== null && (
-          <span className="text-[10px] text-orange-400 ml-auto">
+          <span className="text-[10px] text-orange-400 flex-shrink-0">
             {formatHours(ticket.hoursRemaining)} left
           </span>
         )}
