@@ -5,10 +5,11 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import fs from 'fs'
 
-// Read version from VERSION file
-const version = fs.existsSync(path.resolve(__dirname, 'VERSION'))
-  ? fs.readFileSync(path.resolve(__dirname, 'VERSION'), 'utf-8').trim()
-  : '0.0.0'
+// Read version from root package.json
+const packageJson = JSON.parse(
+  fs.readFileSync(path.resolve(__dirname, '../package.json'), 'utf-8')
+)
+const version = packageJson.version || '0.0.0'
 
 export default defineConfig({
   base: './', // Use relative paths for Electron file:// protocol

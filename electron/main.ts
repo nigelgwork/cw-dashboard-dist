@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
 import path from 'path';
 import { initDatabase } from './database/connection';
 import { registerIpcHandlers } from './ipc/handlers';
@@ -53,6 +53,10 @@ function createWindow(): void {
 // App lifecycle
 app.whenReady().then(async () => {
   try {
+    // Configure session for Windows Integrated Authentication (NTLM/Negotiate)
+    // Allow auth for all servers - required for SSRS feeds
+    session.defaultSession.allowNTLMCredentialsForDomains('*');
+
     // Initialize database
     await initDatabase();
 
