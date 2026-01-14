@@ -1,0 +1,122 @@
+@import "tailwindcss";
+
+/* Tailwind v4 theme customization */
+@theme {
+  /* Custom colors for board UI */
+  --color-board-bg: #0F172A;
+  --color-board-panel: #1E293B;
+  --color-board-border: #334155;
+  --color-board-card: #F8FAFC;
+
+  /* Priority colors */
+  --color-priority-urgent: #EF4444;
+  --color-priority-high: #F97316;
+  --color-priority-medium: #3B82F6;
+  --color-priority-low: #94A3B8;
+}
+
+:root {
+  /* Backgrounds */
+  --bg-primary: #0F172A;
+  --bg-secondary: #1E293B;
+  --bg-tertiary: #334155;
+  --card-bg: #F8FAFC;
+
+  /* Text */
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-dark: #0F172A;
+
+  /* Priority Colors */
+  --priority-urgent: #EF4444;
+  --priority-high: #F97316;
+  --priority-medium: #3B82F6;
+  --priority-low: #94A3B8;
+
+  /* Panel Headers */
+  --quotations-header: #F59E0B;
+  --opportunities-header: #10B981;
+
+  /* Status Note */
+  --status-note-bg: #FEF3C7;
+  --status-note-text: #92400E;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  overflow-x: auto;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Task card priority indicators */
+.priority-urgent {
+  border-left-color: var(--priority-urgent);
+}
+
+.priority-high {
+  border-left-color: var(--priority-high);
+}
+
+.priority-medium {
+  border-left-color: var(--priority-medium);
+}
+
+.priority-low {
+  border-left-color: var(--priority-low);
+}
+
+/* Drag overlay styling */
+.drag-overlay {
+  opacity: 0.9;
+  transform: rotate(3deg);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+/* Drop indicator */
+.drop-target {
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 2px dashed #3B82F6;
+}
+
+/* Toast animation */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}

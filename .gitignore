@@ -1,0 +1,63 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# Build outputs
+dist/
+build/
+dist-electron/
+release/
+*.egg-info/
+.eggs/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+coverage.xml
+*.cover
+
+# Logs
+*.log
+logs/
+
+# Docker
+*.log
+
+# Database
+*.db
+*.sqlite3
+data/
+
+# Backups
+backups/
+
+# TypeScript
+*.tsbuildinfo
+
+# Vite
+*.local
+
+# Zone.Identifier files (Windows WSL)
+*:Zone.Identifier

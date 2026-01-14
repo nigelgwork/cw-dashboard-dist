@@ -1,0 +1,394 @@
+// CW Dashboard Types
+
+export interface ServiceTicket {
+  id: number;
+  externalId: string;
+  summary?: string;
+  status?: string;
+  priority?: string;
+  assignedTo?: string;
+  companyName?: string;
+  boardName?: string;
+  createdDate?: string;
+  lastUpdated?: string;
+  dueDate?: string;
+  hoursEstimate?: number;
+  hoursActual?: number;
+  hoursRemaining?: number;
+  budget?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceTicketAPI {
+  id: number;
+  external_id: string;
+  summary?: string;
+  status?: string;
+  priority?: string;
+  assigned_to?: string;
+  company_name?: string;
+  board_name?: string;
+  created_date?: string;
+  last_updated?: string;
+  due_date?: string;
+  hours_estimate?: number;
+  hours_actual?: number;
+  hours_remaining?: number;
+  budget?: number;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function transformServiceTicket(api: ServiceTicketAPI): ServiceTicket {
+  return {
+    id: api.id,
+    externalId: api.external_id,
+    summary: api.summary,
+    status: api.status,
+    priority: api.priority,
+    assignedTo: api.assigned_to,
+    companyName: api.company_name,
+    boardName: api.board_name,
+    createdDate: api.created_date,
+    lastUpdated: api.last_updated,
+    dueDate: api.due_date,
+    hoursEstimate: api.hours_estimate,
+    hoursActual: api.hours_actual,
+    hoursRemaining: api.hours_remaining,
+    budget: api.budget,
+    notes: api.notes,
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
+  };
+}
+
+export type FeedType = 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+
+export interface AtomFeed {
+  id: number;
+  name: string;
+  feedType: FeedType;
+  feedUrl: string;
+  isActive: boolean;
+  lastSync: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AtomFeedAPI {
+  id: number;
+  name: string;
+  feed_type: string;
+  feed_url: string;
+  is_active: boolean;
+  last_sync: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function transformAtomFeed(api: AtomFeedAPI): AtomFeed {
+  return {
+    id: api.id,
+    name: api.name,
+    feedType: api.feed_type as FeedType,
+    feedUrl: api.feed_url,
+    isActive: api.is_active,
+    lastSync: api.last_sync,
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
+  };
+}
+
+export interface Project {
+  id: number;
+  externalId: string;
+  clientName: string;
+  projectName: string;
+  budget?: number;
+  spent?: number;
+  hoursEstimate?: number;
+  hoursRemaining?: number;
+  status: ProjectStatus;
+  isActive: boolean;
+  notes?: string;
+  budgetRemaining?: number;
+  budgetPercentUsed?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ProjectStatus = 'ACTIVE' | 'ON_HOLD' | 'COMPLETED';
+
+export interface Opportunity {
+  id: number;
+  externalId: string;
+  opportunityName: string;
+  companyName: string;
+  salesRep?: string;
+  stage?: string;
+  expectedRevenue?: number;
+  closeDate?: string;
+  probability?: number;
+  notes?: string;
+  rawData?: Record<string, unknown>;
+  weightedValue?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// WebSocket message types
+export interface WebSocketMessage {
+  type: string;
+  payload: Record<string, unknown>;
+}
+
+// API response types (snake_case from backend)
+export interface ProjectAPI {
+  id: number;
+  external_id: string;
+  client_name: string;
+  project_name: string;
+  budget?: number;
+  spent?: number;
+  hours_estimate?: number;
+  hours_remaining?: number;
+  status: ProjectStatus;
+  is_active: boolean;
+  notes?: string;
+  budget_remaining?: number;
+  budget_percent_used?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OpportunityAPI {
+  id: number;
+  external_id: string;
+  opportunity_name: string;
+  company_name: string;
+  sales_rep?: string;
+  stage?: string;
+  expected_revenue?: number;
+  close_date?: string;
+  probability?: number;
+  notes?: string;
+  raw_data?: Record<string, unknown>;
+  weighted_value?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Transform functions
+export function transformProject(api: ProjectAPI): Project {
+  return {
+    id: api.id,
+    externalId: api.external_id,
+    clientName: api.client_name,
+    projectName: api.project_name,
+    budget: api.budget,
+    spent: api.spent,
+    hoursEstimate: api.hours_estimate,
+    hoursRemaining: api.hours_remaining,
+    status: api.status,
+    isActive: api.is_active,
+    notes: api.notes,
+    budgetRemaining: api.budget_remaining,
+    budgetPercentUsed: api.budget_percent_used,
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
+  };
+}
+
+export function transformOpportunity(api: OpportunityAPI): Opportunity {
+  return {
+    id: api.id,
+    externalId: api.external_id,
+    opportunityName: api.opportunity_name,
+    companyName: api.company_name,
+    salesRep: api.sales_rep,
+    stage: api.stage,
+    expectedRevenue: api.expected_revenue,
+    closeDate: api.close_date,
+    probability: api.probability,
+    notes: api.notes,
+    rawData: api.raw_data,
+    weightedValue: api.weighted_value,
+    createdAt: api.created_at,
+    updatedAt: api.updated_at,
+  };
+}
+
+// Sync types
+export type SyncType = 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+export type SyncStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+export interface SyncHistory {
+  id: number;
+  syncType: SyncType;
+  status: SyncStatus;
+  triggeredBy?: string;
+  startedAt?: string;
+  completedAt?: string;
+  recordsProcessed: number;
+  recordsCreated: number;
+  recordsUpdated: number;
+  recordsUnchanged: number;
+  errorMessage?: string;
+  createdAt: string;
+}
+
+export interface SyncChange {
+  id: number;
+  syncHistoryId: number;
+  entityType: 'PROJECT' | 'OPPORTUNITY' | 'SERVICE_TICKET';
+  entityId: number;
+  externalId?: string;
+  changeType: 'CREATED' | 'UPDATED';
+  fieldName?: string;
+  oldValue?: string;
+  newValue?: string;
+  createdAt: string;
+}
+
+export interface SyncStatusSummary {
+  projects: {
+    lastSync: string | null;
+    lastSyncId: number | null;
+    recordsSynced: number;
+  };
+  opportunities: {
+    lastSync: string | null;
+    lastSyncId: number | null;
+    recordsSynced: number;
+  };
+  serviceTickets: {
+    lastSync: string | null;
+    lastSyncId: number | null;
+    recordsSynced: number;
+  };
+  pendingSyncs: Array<{
+    id: number;
+    syncType: SyncType;
+    status: SyncStatus;
+  }>;
+}
+
+export interface EntityChangeSummary {
+  entityType: 'PROJECT' | 'OPPORTUNITY' | 'SERVICE_TICKET';
+  entityId: number;
+  externalId?: string;
+  changeType: 'CREATED' | 'UPDATED';
+  fieldChanges: SyncChange[];
+}
+
+// Sync API types (snake_case from backend)
+export interface SyncHistoryAPI {
+  id: number;
+  sync_type: string;
+  status: string;
+  triggered_by?: string;
+  started_at?: string;
+  completed_at?: string;
+  records_processed: number;
+  records_created: number;
+  records_updated: number;
+  records_unchanged: number;
+  error_message?: string;
+  created_at: string;
+}
+
+export interface SyncChangeAPI {
+  id: number;
+  sync_history_id: number;
+  entity_type: string;
+  entity_id: number;
+  external_id?: string;
+  change_type: string;
+  field_name?: string;
+  old_value?: string;
+  new_value?: string;
+  created_at: string;
+}
+
+export interface SyncStatusSummaryAPI {
+  projects: {
+    last_sync: string | null;
+    last_sync_id: number | null;
+    records_synced: number;
+  };
+  opportunities: {
+    last_sync: string | null;
+    last_sync_id: number | null;
+    records_synced: number;
+  };
+  service_tickets: {
+    last_sync: string | null;
+    last_sync_id: number | null;
+    records_synced: number;
+  };
+  pending_syncs: Array<{
+    id: number;
+    sync_type: string;
+    status: string;
+  }>;
+}
+
+export function transformSyncHistory(api: SyncHistoryAPI): SyncHistory {
+  return {
+    id: api.id,
+    syncType: api.sync_type as SyncType,
+    status: api.status as SyncStatus,
+    triggeredBy: api.triggered_by,
+    startedAt: api.started_at,
+    completedAt: api.completed_at,
+    recordsProcessed: api.records_processed,
+    recordsCreated: api.records_created,
+    recordsUpdated: api.records_updated,
+    recordsUnchanged: api.records_unchanged,
+    errorMessage: api.error_message,
+    createdAt: api.created_at,
+  };
+}
+
+export function transformSyncChange(api: SyncChangeAPI): SyncChange {
+  return {
+    id: api.id,
+    syncHistoryId: api.sync_history_id,
+    entityType: api.entity_type as 'PROJECT' | 'OPPORTUNITY' | 'SERVICE_TICKET',
+    entityId: api.entity_id,
+    externalId: api.external_id,
+    changeType: api.change_type as 'CREATED' | 'UPDATED',
+    fieldName: api.field_name,
+    oldValue: api.old_value,
+    newValue: api.new_value,
+    createdAt: api.created_at,
+  };
+}
+
+export function transformSyncStatusSummary(api: SyncStatusSummaryAPI): SyncStatusSummary {
+  return {
+    projects: {
+      lastSync: api.projects.last_sync,
+      lastSyncId: api.projects.last_sync_id,
+      recordsSynced: api.projects.records_synced,
+    },
+    opportunities: {
+      lastSync: api.opportunities.last_sync,
+      lastSyncId: api.opportunities.last_sync_id,
+      recordsSynced: api.opportunities.records_synced,
+    },
+    serviceTickets: {
+      lastSync: api.service_tickets.last_sync,
+      lastSyncId: api.service_tickets.last_sync_id,
+      recordsSynced: api.service_tickets.records_synced,
+    },
+    pendingSyncs: api.pending_syncs.map(s => ({
+      id: s.id,
+      syncType: s.sync_type as SyncType,
+      status: s.status as SyncStatus,
+    })),
+  };
+}

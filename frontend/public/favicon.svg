@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E293B"/>
+      <stop offset="100%" style="stop-color:#0F172A"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="32" height="32" rx="6" fill="url(#bg)"/>
+  <!-- CW letters stylized -->
+  <text x="4" y="22" font-family="Arial, sans-serif" font-weight="bold" font-size="14" fill="#8B5CF6">C</text>
+  <text x="15" y="22" font-family="Arial, sans-serif" font-weight="bold" font-size="14" fill="#10B981">W</text>
+  <!-- Small chart bars at bottom -->
+  <rect x="6" y="25" width="4" height="3" rx="0.5" fill="#8B5CF6" opacity="0.6"/>
+  <rect x="12" y="24" width="4" height="4" rx="0.5" fill="#10B981" opacity="0.6"/>
+  <rect x="18" y="23" width="4" height="5" rx="0.5" fill="#8B5CF6" opacity="0.6"/>
+  <rect x="24" y="22" width="4" height="6" rx="0.5" fill="#10B981" opacity="0.6"/>
+</svg>

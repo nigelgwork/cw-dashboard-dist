@@ -1,0 +1,452 @@
+/**
+ * Electron API Client
+ *
+ * This module provides an API client that communicates with the Electron main process
+ * via IPC. It provides the same interface as the HTTP API so the frontend can seamlessly
+ * switch between web and desktop modes.
+ */
+
+import type { Project, Opportunity, ServiceTicket, SyncHistory, SyncStatusSummary, SyncType, EntityChangeSummary } from '../types';
+import type { ProjectsFilter, PaginatedResponse } from './projects';
+import type { OpportunitiesFilter } from './opportunities';
+import type { ServiceTicketsFilter } from './service-tickets';
+
+// Check if running in Electron
+export const isElectron = (): boolean => {
+  return typeof window !== 'undefined' && 'electronAPI' in window;
+};
+
+// Get the Electron API if available
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getElectronAPI(): any {
+  if (!isElectron()) {
+    throw new Error('Electron API not available - not running in Electron');
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (window as any).electronAPI;
+}
+
+// ============================================
+// Projects API
+// ============================================
+
+export const electronProjectsApi = {
+  getAll: async (filters: ProjectsFilter = {}): Promise<Project[]> => {
+    const api = getElectronAPI();
+    return api.projects.getAll({
+      status: filters.status,
+      includeInactive: filters.includeInactive,
+      limit: filters.limit,
+      offset: filters.skip, // Map 'skip' to 'offset' for Electron API
+    });
+  },
+
+  getAllPaginated: async (filters: ProjectsFilter = {}): Promise<PaginatedResponse<Project>> => {
+    const api = getElectronAPI();
+    const items = await api.projects.getAll({
+      status: filters.status,
+      includeInactive: filters.includeInactive,
+      limit: filters.limit ?? 500,
+      offset: filters.skip ?? 0,
+    });
+
+    // Electron API doesn't have built-in pagination, so we simulate it
+    return {
+      items,
+      total: items.length,
+      skip: filters.skip ?? 0,
+      limit: filters.limit ?? 500,
+      has_more: false, // Electron loads all at once
+    };
+  },
+
+  getById: async (id: number): Promise<Project> => {
+    const api = getElectronAPI();
+    const project = await api.projects.getById(id);
+    if (!project) throw new Error(`Project with ID ${id} not found`);
+    return project;
+  },
+
+  getByExternalId: async (externalId: string): Promise<Project> => {
+    const api = getElectronAPI();
+    const project = await api.projects.getByExternalId(externalId);
+    if (!project) throw new Error(`Project with external ID ${externalId} not found`);
+    return project;
+  },
+};
+
+// ============================================
+// Opportunities API
+// ============================================
+
+export const electronOpportunitiesApi = {
+  getAll: async (filters: OpportunitiesFilter = {}): Promise<Opportunity[]> => {
+    const api = getElectronAPI();
+    return api.opportunities.getAll({
+      stage: filters.stage,
+      salesRep: filters.salesRep,
+      limit: filters.limit,
+      offset: filters.skip,
+    });
+  },
+
+  getAllPaginated: async (filters: OpportunitiesFilter = {}): Promise<PaginatedResponse<Opportunity>> => {
+    const api = getElectronAPI();
+    const items = await api.opportunities.getAll({
+      stage: filters.stage,
+      salesRep: filters.salesRep,
+      limit: filters.limit ?? 500,
+      offset: filters.skip ?? 0,
+    });
+
+    return {
+      items,
+      total: items.length,
+      skip: filters.skip ?? 0,
+      limit: filters.limit ?? 500,
+      has_more: false,
+    };
+  },
+
+  getById: async (id: number): Promise<Opportunity> => {
+    const api = getElectronAPI();
+    const opp = await api.opportunities.getById(id);
+    if (!opp) throw new Error(`Opportunity with ID ${id} not found`);
+    return opp;
+  },
+
+  getByExternalId: async (externalId: string): Promise<Opportunity> => {
+    const api = getElectronAPI();
+    const opp = await api.opportunities.getByExternalId(externalId);
+    if (!opp) throw new Error(`Opportunity with external ID ${externalId} not found`);
+    return opp;
+  },
+
+  getStages: async (): Promise<string[]> => {
+    const api = getElectronAPI();
+    return api.opportunities.getStages();
+  },
+
+  getSalesReps: async (): Promise<string[]> => {
+    const api = getElectronAPI();
+    return api.opportunities.getSalesReps();
+  },
+};
+
+// ============================================
+// Service Tickets API
+// ============================================
+
+export const electronServiceTicketsApi = {
+  getAll: async (filters: ServiceTicketsFilter = {}): Promise<ServiceTicket[]> => {
+    const api = getElectronAPI();
+    return api.serviceTickets.getAll({
+      status: filters.status,
+      priority: filters.priority,
+      assignedTo: filters.assignedTo,
+      companyName: filters.companyName,
+      boardName: filters.boardName,
+      limit: filters.limit,
+      offset: filters.skip,
+    });
+  },
+
+  getAllPaginated: async (filters: ServiceTicketsFilter = {}): Promise<PaginatedResponse<ServiceTicket>> => {
+    const api = getElectronAPI();
+    const items = await api.serviceTickets.getAll({
+      status: filters.status,
+      priority: filters.priority,
+      assignedTo: filters.assignedTo,
+      companyName: filters.companyName,
+      boardName: filters.boardName,
+      limit: filters.limit ?? 500,
+      offset: filters.skip ?? 0,
+    });
+
+    return {
+      items,
+      total: items.length,
+      skip: filters.skip ?? 0,
+      limit: filters.limit ?? 500,
+      has_more: false,
+    };
+  },
+
+  getById: async (id: number): Promise<ServiceTicket> => {
+    const api = getElectronAPI();
+    const ticket = await api.serviceTickets.getById(id);
+    if (!ticket) throw new Error(`Service ticket with ID ${id} not found`);
+    return ticket;
+  },
+
+  getByExternalId: async (externalId: string): Promise<ServiceTicket> => {
+    const api = getElectronAPI();
+    const ticket = await api.serviceTickets.getByExternalId(externalId);
+    if (!ticket) throw new Error(`Service ticket with external ID ${externalId} not found`);
+    return ticket;
+  },
+
+  getStatuses: async (): Promise<string[]> => {
+    const api = getElectronAPI();
+    return api.serviceTickets.getStatuses();
+  },
+
+  getPriorities: async (): Promise<string[]> => {
+    const api = getElectronAPI();
+    return api.serviceTickets.getPriorities();
+  },
+
+  getAssignees: async (): Promise<string[]> => {
+    const api = getElectronAPI();
+    return api.serviceTickets.getAssignees();
+  },
+
+  getCompanies: async (): Promise<string[]> => {
+    const api = getElectronAPI();
+    return api.serviceTickets.getCompanies();
+  },
+
+  getBoards: async (): Promise<string[]> => {
+    const api = getElectronAPI();
+    return api.serviceTickets.getBoards();
+  },
+};
+
+// ============================================
+// Sync API
+// ============================================
+
+export interface SyncRequestResult {
+  ids: number[];
+  message: string;
+}
+
+export interface ClearHistoryResult {
+  message: string;
+  deletedHistory: number;
+  deletedChanges: number;
+}
+
+export const electronSyncApi = {
+  requestSync: async (syncType: SyncType | 'ALL'): Promise<SyncRequestResult> => {
+    const api = getElectronAPI();
+    return api.sync.request(syncType);
+  },
+
+  getStatus: async (): Promise<SyncStatusSummary> => {
+    const api = getElectronAPI();
+    return api.sync.getStatus();
+  },
+
+  getHistory: async (options?: {
+    syncType?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<SyncHistory[]> => {
+    const api = getElectronAPI();
+    return api.sync.getHistory(options);
+  },
+
+  getChanges: async (syncHistoryId: number): Promise<EntityChangeSummary[]> => {
+    const api = getElectronAPI();
+    return api.sync.getChanges(syncHistoryId);
+  },
+
+  cancel: async (syncId: number): Promise<{ message: string }> => {
+    const api = getElectronAPI();
+    return api.sync.cancel(syncId);
+  },
+
+  clearHistory: async (): Promise<ClearHistoryResult> => {
+    const api = getElectronAPI();
+    return api.sync.clearHistory();
+  },
+};
+
+// ============================================
+// Feeds API (Electron only)
+// ============================================
+
+export interface AtomFeed {
+  id: number;
+  name: string;
+  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+  feedUrl: string;
+  lastSync: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FeedTestResult {
+  success: boolean;
+  recordCount?: number;
+  error?: string;
+}
+
+export const electronFeedsApi = {
+  getAll: async (): Promise<AtomFeed[]> => {
+    const api = getElectronAPI();
+    return api.feeds.getAll();
+  },
+
+  import: async (filePath: string): Promise<AtomFeed[]> => {
+    const api = getElectronAPI();
+    return api.feeds.import(filePath);
+  },
+
+  importFromDialog: async (): Promise<AtomFeed[]> => {
+    const api = getElectronAPI();
+    return api.feeds.importFromDialog();
+  },
+
+  delete: async (feedId: number): Promise<void> => {
+    const api = getElectronAPI();
+    return api.feeds.delete(feedId);
+  },
+
+  test: async (feedId: number): Promise<FeedTestResult> => {
+    const api = getElectronAPI();
+    return api.feeds.test(feedId);
+  },
+};
+
+// ============================================
+// Settings API (Electron only)
+// ============================================
+
+export interface Setting {
+  key: string;
+  value: string;
+}
+
+export const electronSettingsApi = {
+  get: async (key: string): Promise<string | null> => {
+    const api = getElectronAPI();
+    return api.settings.get(key);
+  },
+
+  set: async (key: string, value: string): Promise<void> => {
+    const api = getElectronAPI();
+    return api.settings.set(key, value);
+  },
+
+  getAll: async (): Promise<Setting[]> => {
+    const api = getElectronAPI();
+    return api.settings.getAll();
+  },
+};
+
+// ============================================
+// Updates API (Electron only)
+// ============================================
+
+export interface UpdateCheckResult {
+  updateAvailable: boolean;
+  version?: string;
+  releaseNotes?: string;
+}
+
+export interface GitHubTokenStatus {
+  hasToken: boolean;
+  maskedToken: string | null;
+}
+
+export const electronUpdatesApi = {
+  check: async (): Promise<UpdateCheckResult> => {
+    const api = getElectronAPI();
+    return api.updates.check();
+  },
+
+  download: async (): Promise<void> => {
+    const api = getElectronAPI();
+    return api.updates.download();
+  },
+
+  install: async (): Promise<void> => {
+    const api = getElectronAPI();
+    return api.updates.install();
+  },
+
+  getVersion: async (): Promise<string> => {
+    const api = getElectronAPI();
+    return api.getVersion();
+  },
+
+  setGitHubToken: async (token: string | null): Promise<void> => {
+    const api = getElectronAPI();
+    return api.updates.setGitHubToken(token);
+  },
+
+  getGitHubTokenStatus: async (): Promise<GitHubTokenStatus> => {
+    const api = getElectronAPI();
+    return api.updates.getGitHubTokenStatus();
+  },
+};
+
+// ============================================
+// Event Subscriptions
+// ============================================
+
+type EventCallback = (data: unknown) => void;
+
+export const electronEvents = {
+  /**
+   * Subscribe to an event from the main process
+   * @returns Unsubscribe function
+   */
+  on: (channel: string, callback: EventCallback): (() => void) => {
+    if (!isElectron()) {
+      console.warn('Electron events not available - not running in Electron');
+      return () => {};
+    }
+    const api = getElectronAPI();
+    return api.on(channel, callback);
+  },
+
+  /**
+   * Unsubscribe from an event
+   */
+  off: (channel: string, callback: EventCallback): void => {
+    if (!isElectron()) return;
+    const api = getElectronAPI();
+    api.off(channel, callback);
+  },
+};
+
+// ============================================
+// Combined API - Auto-detect Electron vs Web
+// ============================================
+
+/**
+ * Get the appropriate API client based on the environment.
+ * In Electron, uses IPC. In browser, uses HTTP.
+ */
+export function getApiClient() {
+  if (isElectron()) {
+    return {
+      projects: electronProjectsApi,
+      opportunities: electronOpportunitiesApi,
+      sync: electronSyncApi,
+      feeds: electronFeedsApi,
+      settings: electronSettingsApi,
+      updates: electronUpdatesApi,
+      events: electronEvents,
+      isElectron: true,
+    };
+  }
+
+  // Return web API client (imported dynamically to avoid circular deps)
+  return {
+    isElectron: false,
+    // These will be set by the calling code from the existing API modules
+    projects: null,
+    opportunities: null,
+    sync: null,
+    feeds: null,
+    settings: null,
+    updates: null,
+    events: null,
+  };
+}
