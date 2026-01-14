@@ -8,10 +8,6 @@ import {
   Loader2,
   AlertCircle,
   Info,
-  Key,
-  Eye,
-  EyeOff,
-  Trash2,
 } from 'lucide-react';
 import AtomFeedManager from './AtomFeedManager';
 import { isElectron, electronUpdatesApi, electronSettingsApi } from '../../api/electron-api';
@@ -65,13 +61,6 @@ export default function SettingsPanel() {
   const [autoSync, setAutoSync] = useState<boolean>(true);
   const [savingSettings, setSavingSettings] = useState(false);
 
-  // GitHub token settings
-  const [hasGitHubToken, setHasGitHubToken] = useState(false);
-  const [maskedToken, setMaskedToken] = useState<string | null>(null);
-  const [newToken, setNewToken] = useState('');
-  const [showToken, setShowToken] = useState(false);
-  const [savingToken, setSavingToken] = useState(false);
-
   useEffect(() => {
     if (!isElectron()) return;
 
@@ -90,18 +79,6 @@ export default function SettingsPanel() {
       }
     };
     loadSettings();
-
-    // Load GitHub token status
-    const loadTokenStatus = async () => {
-      try {
-        const status = await electronUpdatesApi.getGitHubTokenStatus();
-        setHasGitHubToken(status.hasToken);
-        setMaskedToken(status.maskedToken);
-      } catch (err) {
-        console.error('Failed to load GitHub token status:', err);
-      }
-    };
-    loadTokenStatus();
   }, []);
 
   const handleCheckUpdate = async () => {
@@ -164,36 +141,6 @@ export default function SettingsPanel() {
       showToast('error', 'Failed to save settings');
     } finally {
       setSavingSettings(false);
-    }
-  };
-
-  const handleSaveToken = async () => {
-    if (!isElectron() || !newToken.trim()) return;
-    setSavingToken(true);
-    try {
-      await electronUpdatesApi.setGitHubToken(newToken.trim());
-      const status = await electronUpdatesApi.getGitHubTokenStatus();
-      setHasGitHubToken(status.hasToken);
-      setMaskedToken(status.maskedToken);
-      setNewToken('');
-      setShowToken(false);
-      showToast('success', 'GitHub token saved. You can now check for updates.');
-    } catch (err) {
-      showToast('error', 'Failed to save GitHub token');
-    } finally {
-      setSavingToken(false);
-    }
-  };
-
-  const handleClearToken = async () => {
-    if (!isElectron()) return;
-    try {
-      await electronUpdatesApi.setGitHubToken(null);
-      setHasGitHubToken(false);
-      setMaskedToken(null);
-      showToast('info', 'GitHub token cleared');
-    } catch (err) {
-      showToast('error', 'Failed to clear GitHub token');
     }
   };
 
@@ -426,88 +373,6 @@ export default function SettingsPanel() {
                         <p className="text-sm text-red-400">{updateState.error}</p>
                       </div>
                     )}
-                  </div>
-                )}
-
-                {/* GitHub Token Section */}
-                {isElectron() && (
-                  <div className="mt-6">
-                    <h3 className="text-md font-medium text-white mb-3 flex items-center gap-2">
-                      <Key size={18} className="text-gray-400" />
-                      GitHub Access Token
-                    </h3>
-                    <div className="bg-board-panel border border-board-border rounded-lg p-4 space-y-4">
-                      <p className="text-xs text-gray-400">
-                        This application updates from a private GitHub repository.
-                        A personal access token (PAT) with <code className="bg-board-bg px-1 rounded">repo</code> scope is required to check for and download updates.
-                      </p>
-
-                      {/* Current token status */}
-                      {hasGitHubToken ? (
-                        <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                          <div className="flex items-center gap-2">
-                            <CheckCircle size={16} className="text-green-400" />
-                            <div>
-                              <span className="text-sm text-green-400">Token configured</span>
-                              <p className="text-xs text-gray-500 font-mono">{maskedToken}</p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={handleClearToken}
-                            className="flex items-center gap-1 px-2 py-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded text-xs transition-colors"
-                          >
-                            <Trash2 size={14} />
-                            Remove
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-                          <AlertCircle size={16} className="text-yellow-400" />
-                          <span className="text-sm text-yellow-400">No token configured - updates will not work</span>
-                        </div>
-                      )}
-
-                      {/* Token input */}
-                      <div className="space-y-2">
-                        <label className="block text-sm font-medium text-gray-300">
-                          {hasGitHubToken ? 'Update Token' : 'Enter Token'}
-                        </label>
-                        <div className="flex gap-2">
-                          <div className="relative flex-1">
-                            <input
-                              type={showToken ? 'text' : 'password'}
-                              value={newToken}
-                              onChange={(e) => setNewToken(e.target.value)}
-                              placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                              className="w-full bg-board-bg border border-board-border rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowToken(!showToken)}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                            >
-                              {showToken ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                          </div>
-                          <button
-                            onClick={handleSaveToken}
-                            disabled={savingToken || !newToken.trim()}
-                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium transition-colors"
-                          >
-                            {savingToken ? (
-                              <Loader2 size={14} className="animate-spin" />
-                            ) : (
-                              <CheckCircle size={14} />
-                            )}
-                            Save
-                          </button>
-                        </div>
-                        <p className="text-xs text-gray-500">
-                          Create a token at{' '}
-                          <span className="text-blue-400">GitHub → Settings → Developer settings → Personal access tokens</span>
-                        </p>
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>

@@ -1,13 +1,13 @@
 /**
  * Native Sync Service
  *
- * Fetches ATOM feeds using Electron's net module (supports Windows Auth)
+ * Fetches ATOM feeds using Electron's session.fetch (supports Windows Auth/NTLM)
  * and syncs data to SQLite using better-sqlite3.
  *
  * This replaces the PowerShell-based sync for better portability.
  */
 
-import { net } from 'electron';
+import { session } from 'electron';
 import { parseStringPromise } from 'xml2js';
 import { getDatabase } from '../database/connection';
 import { ProjectRow, OpportunityRow, ServiceTicketRow } from '../database/schema';
@@ -26,69 +26,32 @@ interface AtomEntry {
 }
 
 /**
- * Fetch ATOM feed using Electron's net module (supports Windows Integrated Auth)
+ * Fetch ATOM feed using Electron's session.fetch (supports Windows Integrated Auth/NTLM)
  */
 export async function fetchAtomFeed(url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    console.log(`[NativeSync] Fetching: ${url}`);
+  console.log(`[NativeSync] Fetching: ${url}`);
 
-    const request = net.request({
-      url,
+  try {
+    // Use session.defaultSession.fetch which integrates with NTLM credentials
+    const response = await session.defaultSession.fetch(url, {
       method: 'GET',
-      useSessionCookies: true, // Important for auth sessions
+      credentials: 'include', // Include Windows credentials for NTLM
     });
 
-    let responseData = '';
-    let statusCode = 0;
-    let authAttempted = false;
+    console.log(`[NativeSync] Response status: ${response.status}`);
 
-    request.on('response', (response) => {
-      statusCode = response.statusCode;
-      console.log(`[NativeSync] Response status: ${statusCode}, headers:`, response.headers);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
+    }
 
-      // For 401, log the auth challenge header
-      if (statusCode === 401) {
-        const authHeader = response.headers['www-authenticate'];
-        console.log(`[NativeSync] WWW-Authenticate header: ${authHeader}`);
-      }
-
-      response.on('data', (chunk) => {
-        responseData += chunk.toString();
-      });
-
-      response.on('end', () => {
-        if (statusCode >= 200 && statusCode < 300) {
-          console.log(`[NativeSync] Received ${responseData.length} bytes`);
-          resolve(responseData);
-        } else if (statusCode === 401 && !authAttempted) {
-          // Auth might still be processing, give it a moment
-          console.log(`[NativeSync] Got 401, auth may not have been attempted yet`);
-          reject(new Error(`HTTP 401 Unauthorized: Windows authentication failed. Make sure you're logged into the domain and have access to the SSRS server.`));
-        } else {
-          reject(new Error(`HTTP ${statusCode}: ${responseData.substring(0, 200)}`));
-        }
-      });
-
-      response.on('error', (error) => {
-        reject(error);
-      });
-    });
-
-    request.on('error', (error) => {
-      console.error(`[NativeSync] Request error:`, error);
-      reject(error);
-    });
-
-    request.on('login', (authInfo, callback) => {
-      // Use default credentials (Windows Integrated Auth / NTLM / Negotiate)
-      console.log(`[NativeSync] Auth challenge received for ${authInfo.host} (${authInfo.scheme}), using default Windows credentials`);
-      authAttempted = true;
-      // Call callback with no args to use default Windows credentials
-      callback();
-    });
-
-    request.end();
-  });
+    const responseData = await response.text();
+    console.log(`[NativeSync] Received ${responseData.length} bytes`);
+    return responseData;
+  } catch (error) {
+    console.error(`[NativeSync] Request error:`, error);
+    throw error;
+  }
 }
 
 /**
