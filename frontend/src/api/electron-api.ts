@@ -223,8 +223,8 @@ export interface SyncRequestResult {
 
 export interface ClearHistoryResult {
   message: string;
-  deletedHistory: number;
-  deletedChanges: number;
+  deleted_history: number;
+  deleted_changes: number;
 }
 
 export const electronSyncApi = {
@@ -253,14 +253,35 @@ export const electronSyncApi = {
     return api.sync.getChanges(syncHistoryId);
   },
 
-  cancel: async (syncId: number): Promise<{ message: string }> => {
+  cancelSync: async (syncId: number): Promise<{ message: string }> => {
     const api = getElectronAPI();
     return api.sync.cancel(syncId);
   },
 
   clearHistory: async (): Promise<ClearHistoryResult> => {
     const api = getElectronAPI();
-    return api.sync.clearHistory();
+    const result = await api.sync.clearHistory();
+    // Transform camelCase from Electron to snake_case for consistency
+    return {
+      message: result.message,
+      deleted_history: result.deletedHistory ?? result.deleted_history ?? 0,
+      deleted_changes: result.deletedChanges ?? result.deleted_changes ?? 0,
+    };
+  },
+
+  // Not used in Electron mode (no separate listener process)
+  getListenerStatus: async (): Promise<{
+    alive: boolean;
+    last_heartbeat: string | null;
+    age_seconds?: number;
+    message: string;
+  }> => {
+    // Electron doesn't have a listener - syncs run directly in main process
+    return {
+      alive: true,
+      last_heartbeat: null,
+      message: 'Electron mode - syncs run directly',
+    };
   },
 };
 

@@ -18,7 +18,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
-import syncApi from '../../api/sync';
+import { sync as syncApi } from '../../api';
 import { SyncHistory, SyncStatusSummary, SyncType, EntityChangeSummary } from '../../types';
 import { isElectron } from '../../api/electron-api';
 
