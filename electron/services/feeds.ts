@@ -7,8 +7,9 @@ import fs from 'fs';
 export interface AtomFeed {
   id: number;
   name: string;
-  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL';
   feedUrl: string;
+  detailFeedId: number | null;
   lastSync: string | null;
   isActive: boolean;
   createdAt: string;
@@ -27,6 +28,7 @@ function transformRow(row: AtomFeedRow): AtomFeed {
     name: row.name,
     feedType: row.feed_type,
     feedUrl: row.feed_url,
+    detailFeedId: row.detail_feed_id,
     lastSync: row.last_sync,
     isActive: row.is_active === 1,
     createdAt: row.created_at,
@@ -151,7 +153,7 @@ export function toggleFeedActive(feedId: number, isActive: boolean): void {
 /**
  * Update feed properties
  */
-export function updateFeed(feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }): AtomFeed | null {
+export function updateFeed(feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL' }): AtomFeed | null {
   const db = getDatabase();
   const feed = getFeedById(feedId);
 
@@ -163,4 +165,68 @@ export function updateFeed(feedId: number, updates: { name?: string; feedType?: 
   db.prepare('UPDATE atom_feeds SET name = ?, feed_type = ?, updated_at = datetime(\'now\') WHERE id = ?').run(name, feedType, feedId);
 
   return getFeedById(feedId);
+}
+
+/**
+ * Link a detail feed to a summary feed for adaptive sync
+ */
+export function linkDetailFeed(summaryFeedId: number, detailFeedId: number): AtomFeed | null {
+  const db = getDatabase();
+  const summaryFeed = getFeedById(summaryFeedId);
+  const detailFeed = getFeedById(detailFeedId);
+
+  if (!summaryFeed || !detailFeed) {
+    console.error('[Feeds] Cannot link: feed not found');
+    return null;
+  }
+
+  if (summaryFeed.feedType !== 'PROJECTS') {
+    console.error('[Feeds] Cannot link: summary feed must be PROJECTS type');
+    return null;
+  }
+
+  if (detailFeed.feedType !== 'PROJECT_DETAIL') {
+    console.error('[Feeds] Cannot link: detail feed must be PROJECT_DETAIL type');
+    return null;
+  }
+
+  db.prepare('UPDATE atom_feeds SET detail_feed_id = ?, updated_at = datetime(\'now\') WHERE id = ?')
+    .run(detailFeedId, summaryFeedId);
+
+  console.log(`[Feeds] Linked detail feed ${detailFeedId} to summary feed ${summaryFeedId}`);
+  return getFeedById(summaryFeedId);
+}
+
+/**
+ * Unlink a detail feed from a summary feed
+ */
+export function unlinkDetailFeed(summaryFeedId: number): AtomFeed | null {
+  const db = getDatabase();
+  const feed = getFeedById(summaryFeedId);
+
+  if (!feed) return null;
+
+  db.prepare('UPDATE atom_feeds SET detail_feed_id = NULL, updated_at = datetime(\'now\') WHERE id = ?')
+    .run(summaryFeedId);
+
+  console.log(`[Feeds] Unlinked detail feed from summary feed ${summaryFeedId}`);
+  return getFeedById(summaryFeedId);
+}
+
+/**
+ * Get the detail feed linked to a summary feed
+ */
+export function getDetailFeed(summaryFeedId: number): AtomFeed | null {
+  const feed = getFeedById(summaryFeedId);
+  if (!feed || !feed.detailFeedId) return null;
+  return getFeedById(feed.detailFeedId);
+}
+
+/**
+ * Get all PROJECT_DETAIL feeds (for linking dropdown)
+ */
+export function getDetailFeeds(): AtomFeed[] {
+  const db = getDatabase();
+  const rows = db.prepare("SELECT * FROM atom_feeds WHERE feed_type = 'PROJECT_DETAIL' ORDER BY name").all() as AtomFeedRow[];
+  return rows.map(transformRow);
 }

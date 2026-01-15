@@ -6,6 +6,7 @@ import {
   FolderKanban,
   TrendingUp,
   Ticket,
+  FileText,
   Loader2,
   CheckCircle,
   XCircle,
@@ -17,6 +18,7 @@ import {
   Copy,
   ChevronDown,
   ChevronUp,
+  Link2,
 } from 'lucide-react';
 import { electronFeedsApi, isElectron } from '../../api/electron-api';
 import { feedsApi } from '../../api/feeds';
@@ -48,6 +50,8 @@ const getFeedTypeIcon = (feedType: FeedType) => {
       return TrendingUp;
     case 'SERVICE_TICKETS':
       return Ticket;
+    case 'PROJECT_DETAIL':
+      return FileText;
     default:
       return FolderKanban;
   }
@@ -61,24 +65,46 @@ const getFeedTypeColor = (feedType: FeedType) => {
       return { text: 'text-green-400', bg: 'bg-green-500/20' };
     case 'SERVICE_TICKETS':
       return { text: 'text-orange-400', bg: 'bg-orange-500/20' };
+    case 'PROJECT_DETAIL':
+      return { text: 'text-purple-400', bg: 'bg-purple-500/20' };
     default:
       return { text: 'text-gray-400', bg: 'bg-gray-500/20' };
   }
 };
 
+const getFeedTypeLabel = (feedType: FeedType) => {
+  switch (feedType) {
+    case 'PROJECTS':
+      return 'Projects';
+    case 'OPPORTUNITIES':
+      return 'Opportunities';
+    case 'SERVICE_TICKETS':
+      return 'Service Tickets';
+    case 'PROJECT_DETAIL':
+      return 'Project Detail';
+    default:
+      return feedType;
+  }
+};
+
 interface FeedCardProps {
   feed: AtomFeed;
+  allFeeds: AtomFeed[];
+  detailFeeds: AtomFeed[];
   onTest: (feedId: number) => Promise<FeedTestResult>;
   onDelete: (feedId: number) => Promise<void>;
   onUpdate: (feedId: number, updates: { name?: string; feedType?: FeedType }) => Promise<void>;
+  onLinkDetail: (summaryFeedId: number, detailFeedId: number) => Promise<void>;
+  onUnlinkDetail: (summaryFeedId: number) => Promise<void>;
 }
 
-function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
+function FeedCard({ feed, allFeeds, detailFeeds, onTest, onDelete, onUpdate, onLinkDetail, onUnlinkDetail }: FeedCardProps) {
   const { showToast } = useToast();
   const [testing, setTesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [linking, setLinking] = useState(false);
   const [editName, setEditName] = useState(feed.name);
   const [editType, setEditType] = useState<FeedType>(feed.feedType);
   const [testResult, setTestResult] = useState<FeedTestResult | null>(null);
@@ -86,6 +112,12 @@ function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
 
   const TypeIcon = getFeedTypeIcon(editing ? editType : feed.feedType);
   const { text: typeColor, bg: typeBgColor } = getFeedTypeColor(editing ? editType : feed.feedType);
+
+  // Find the linked detail feed if any
+  const linkedDetailFeed = feed.detailFeedId ? allFeeds.find(f => f.id === feed.detailFeedId) : null;
+
+  // Check if this feed can have a detail feed linked (only PROJECTS feeds)
+  const canLinkDetail = feed.feedType === 'PROJECTS';
 
   const handleTest = async () => {
     setTesting(true);
@@ -132,6 +164,20 @@ function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
     }
   };
 
+  const handleLinkChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const detailFeedId = e.target.value ? parseInt(e.target.value, 10) : null;
+    setLinking(true);
+    try {
+      if (detailFeedId) {
+        await onLinkDetail(feed.id, detailFeedId);
+      } else {
+        await onUnlinkDetail(feed.id);
+      }
+    } finally {
+      setLinking(false);
+    }
+  };
+
   return (
     <div className="bg-board-bg border border-board-border rounded-lg p-4">
       <div className="flex items-start justify-between mb-3">
@@ -156,12 +202,13 @@ function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
                 <option value="PROJECTS">Projects</option>
                 <option value="OPPORTUNITIES">Opportunities</option>
                 <option value="SERVICE_TICKETS">Service Tickets</option>
+                <option value="PROJECT_DETAIL">Project Detail</option>
               </select>
             </div>
           ) : (
             <div>
               <h3 className="text-sm font-medium text-white">{feed.name}</h3>
-              <span className={`text-xs ${typeColor}`}>{feed.feedType.replace('_', ' ')}</span>
+              <span className={`text-xs ${typeColor}`}>{getFeedTypeLabel(feed.feedType)}</span>
             </div>
           )}
         </div>
@@ -270,6 +317,56 @@ function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
         <span>Last sync: {formatDate(feed.lastSync)}</span>
       </div>
 
+      {/* Detail Feed Linking - Only for PROJECTS feeds */}
+      {canLinkDetail && (
+        <div className="mt-3 p-2 bg-board-panel/50 rounded">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              <Link2 size={12} />
+              <span>Detail Feed (for status sync)</span>
+            </div>
+            {linking && <Loader2 size={12} className="text-gray-400 animate-spin" />}
+          </div>
+          <div className="mt-1.5">
+            {detailFeeds.length > 0 ? (
+              <select
+                value={feed.detailFeedId ?? ''}
+                onChange={handleLinkChange}
+                disabled={linking}
+                className="w-full px-2 py-1.5 text-xs bg-board-bg border border-board-border rounded text-white focus:outline-none focus:border-blue-500 disabled:opacity-50"
+              >
+                <option value="">No detail feed linked</option>
+                {detailFeeds.map((df) => (
+                  <option key={df.id} value={df.id}>
+                    {df.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-gray-500 italic">
+                No PROJECT_DETAIL feeds available. Import a detail report ATOMSVC to enable adaptive sync.
+              </p>
+            )}
+          </div>
+          {linkedDetailFeed && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-purple-400">
+              <CheckCircle size={12} />
+              <span>Linked to: {linkedDetailFeed.name}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Show if this is a PROJECT_DETAIL feed - indicate what it's for */}
+      {feed.feedType === 'PROJECT_DETAIL' && (
+        <div className="mt-3 p-2 bg-purple-500/10 border border-purple-500/20 rounded">
+          <div className="flex items-center gap-2 text-xs text-purple-400">
+            <FileText size={12} />
+            <span>This feed provides detailed project data (status, etc.) for adaptive sync</span>
+          </div>
+        </div>
+      )}
+
       {/* Test Result */}
       {testResult && (
         <div className={`mt-3 px-2 py-1.5 rounded text-xs ${
@@ -302,6 +399,7 @@ function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
 export default function AtomFeedManager() {
   const { showToast } = useToast();
   const [feeds, setFeeds] = useState<AtomFeed[]>([]);
+  const [detailFeeds, setDetailFeeds] = useState<AtomFeed[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -313,8 +411,13 @@ export default function AtomFeedManager() {
       let data: AtomFeed[];
       if (inElectron) {
         data = await electronFeedsApi.getAll();
+        // Also fetch detail feeds for linking dropdown
+        const details = await electronFeedsApi.getDetailFeeds();
+        setDetailFeeds(details);
       } else {
         data = await feedsApi.getAll();
+        // Filter detail feeds from the full list for web mode
+        setDetailFeeds(data.filter(f => f.feedType === 'PROJECT_DETAIL'));
       }
       setFeeds(data);
     } catch (err) {
@@ -422,6 +525,36 @@ export default function AtomFeedManager() {
       const message = err instanceof Error ? err.message : 'Failed to update feed';
       showToast('error', message);
       throw err; // Re-throw so the card knows the save failed
+    }
+  };
+
+  const handleLinkDetail = async (summaryFeedId: number, detailFeedId: number) => {
+    try {
+      if (inElectron) {
+        await electronFeedsApi.linkDetail(summaryFeedId, detailFeedId);
+        showToast('success', 'Detail feed linked - syncs will now fetch project status');
+        fetchFeeds();
+      } else {
+        console.warn('Feed linking not supported in web mode');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to link detail feed';
+      showToast('error', message);
+    }
+  };
+
+  const handleUnlinkDetail = async (summaryFeedId: number) => {
+    try {
+      if (inElectron) {
+        await electronFeedsApi.unlinkDetail(summaryFeedId);
+        showToast('success', 'Detail feed unlinked');
+        fetchFeeds();
+      } else {
+        console.warn('Feed unlinking not supported in web mode');
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to unlink detail feed';
+      showToast('error', message);
     }
   };
 
@@ -557,9 +690,13 @@ export default function AtomFeedManager() {
             <FeedCard
               key={feed.id}
               feed={feed}
+              allFeeds={feeds}
+              detailFeeds={detailFeeds}
               onTest={handleTest}
               onDelete={handleDelete}
               onUpdate={handleUpdate}
+              onLinkDetail={handleLinkDetail}
+              onUnlinkDetail={handleUnlinkDetail}
             />
           ))}
         </div>

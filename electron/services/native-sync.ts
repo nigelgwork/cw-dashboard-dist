@@ -11,8 +11,9 @@ import { session } from 'electron';
 import { parseStringPromise } from 'xml2js';
 import { getDatabase } from '../database/connection';
 import { ProjectRow, OpportunityRow, ServiceTicketRow } from '../database/schema';
-import { applyDynamicDates } from './atomsvc-parser';
-import { getDateLookbackDays } from './settings';
+import { applyDynamicDates, createDetailFeedUrl } from './atomsvc-parser';
+import { getDateLookbackDays, isAdaptiveSyncEnabled } from './settings';
+import { getDetailFeed } from './feeds';
 
 export interface SyncResult {
   success: boolean;
@@ -121,11 +122,71 @@ export async function parseAtomFeed(xmlContent: string): Promise<AtomEntry[]> {
 }
 
 /**
+ * Fetch and parse project detail for a single project
+ * Returns the Status and other detail fields if available
+ */
+export async function fetchProjectDetail(
+  detailFeedUrl: string,
+  projectId: string
+): Promise<{ status?: string; endDate?: string; company?: string; name?: string } | null> {
+  try {
+    // Create the detail URL with the project ID
+    const url = createDetailFeedUrl(detailFeedUrl, projectId);
+    console.log(`[NativeSync] Fetching detail for project ${projectId}`);
+
+    // Fetch the detail feed
+    const xmlContent = await fetchAtomFeed(url);
+    const entries = await parseAtomFeed(xmlContent);
+
+    if (entries.length === 0) {
+      console.log(`[NativeSync] No detail entries found for project ${projectId}`);
+      return null;
+    }
+
+    // The detail report may have multiple collections (Tablix1, Tablix2, etc.)
+    // We need to find the one with the Status field
+    // Based on user's report, this is in the Overview section
+    for (const entry of entries) {
+      // Look for Status field - common field names
+      const status = entry.Status || entry.status || entry.ProjectStatus || entry.Project_Status;
+      if (status) {
+        console.log(`[NativeSync] Found detail for project ${projectId}: Status="${status}"`);
+        return {
+          status: cleanHtmlEntities(status),
+          endDate: entry.EndDate || entry.End_Date || entry['End Date'],
+          company: entry.Company || entry.company || entry.CompanyName,
+          name: entry.Name || entry.name || entry.ProjectName,
+        };
+      }
+    }
+
+    // If no Status field found, log the first entry's fields for debugging
+    console.log(`[NativeSync] No Status field found in detail. Available fields: ${Object.keys(entries[0]).join(', ')}`);
+
+    // Try to extract from the first entry even if Status field is not named as expected
+    const firstEntry = entries[0];
+    return {
+      status: undefined, // No status found
+      endDate: firstEntry.EndDate || firstEntry.End_Date || firstEntry['End Date'],
+      company: firstEntry.Company || firstEntry.company || firstEntry.CompanyName,
+      name: firstEntry.Name || firstEntry.name || firstEntry.ProjectName,
+    };
+  } catch (error) {
+    console.error(`[NativeSync] Error fetching detail for project ${projectId}:`, error);
+    return null;
+  }
+}
+
+/**
  * Sync projects from ATOM feed to SQLite
+ * @param feedUrl The ATOM feed URL
+ * @param syncHistoryId The sync history record ID
+ * @param feedId Optional feed ID to look up linked detail feed for adaptive sync
  */
 export async function syncProjects(
   feedUrl: string,
-  syncHistoryId: number
+  syncHistoryId: number,
+  feedId?: number
 ): Promise<SyncResult> {
   const db = getDatabase();
 
@@ -133,6 +194,18 @@ export async function syncProjects(
     // Apply dynamic dates to URL before fetching
     const lookbackDays = getDateLookbackDays();
     const dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+
+    // Check for linked detail feed for adaptive sync
+    let detailFeedUrl: string | null = null;
+    const adaptiveSyncEnabled = isAdaptiveSyncEnabled();
+
+    if (feedId && adaptiveSyncEnabled) {
+      const detailFeed = getDetailFeed(feedId);
+      if (detailFeed && detailFeed.isActive) {
+        detailFeedUrl = detailFeed.feedUrl;
+        console.log(`[NativeSync] Adaptive sync enabled - will fetch details from: ${detailFeed.name}`);
+      }
+    }
 
     // Fetch the feed
     const xmlContent = await fetchAtomFeed(dynamicUrl);
@@ -188,7 +261,29 @@ export async function syncProjects(
     // Process each entry
     for (const entry of entries) {
       try {
-        const mapped = mapProjectEntry(entry);
+        let mapped = mapProjectEntry(entry);
+
+        // Adaptive sync: fetch detail data if available
+        if (detailFeedUrl && mapped.external_id) {
+          try {
+            const detail = await fetchProjectDetail(detailFeedUrl, mapped.external_id as string);
+            if (detail) {
+              // Merge detail data into mapped record
+              if (detail.status) {
+                mapped.status = detail.status;
+                // Re-evaluate isActive based on new status
+                const lowerStatus = detail.status.toLowerCase();
+                const isInactive = lowerStatus.includes('completed') || lowerStatus.includes('cancelled') ||
+                                   lowerStatus.includes('closed');
+                mapped.is_active = isInactive ? 0 : 1;
+              }
+              console.log(`[NativeSync] Project ${mapped.external_id}: Status="${mapped.status}", isActive=${mapped.is_active}`);
+            }
+          } catch (detailError) {
+            console.error(`[NativeSync] Failed to fetch detail for ${mapped.external_id}:`, detailError);
+            // Continue with summary data only
+          }
+        }
 
         const existing = selectStmt.get(mapped.external_id) as ProjectRow | undefined;
 

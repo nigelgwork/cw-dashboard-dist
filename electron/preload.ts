@@ -50,7 +50,10 @@ export interface ElectronAPI {
     importFromDialog: () => Promise<AtomFeed[]>;
     delete: (feedId: number) => Promise<void>;
     test: (feedId: number) => Promise<FeedTestResult>;
-    update: (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }) => Promise<AtomFeed | null>;
+    update: (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL' }) => Promise<AtomFeed | null>;
+    linkDetail: (summaryFeedId: number, detailFeedId: number) => Promise<AtomFeed | null>;
+    unlinkDetail: (summaryFeedId: number) => Promise<AtomFeed | null>;
+    getDetailFeeds: () => Promise<AtomFeed[]>;
   };
 
   // Settings
@@ -213,8 +216,9 @@ interface ClearDataResult {
 interface AtomFeed {
   id: number;
   name: string;
-  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL';
   feedUrl: string;
+  detailFeedId: number | null;
   lastSync: string | null;
   isActive: boolean;
   createdAt: string;
@@ -305,7 +309,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     importFromDialog: () => ipcRenderer.invoke('feeds:importFromDialog'),
     delete: (feedId: number) => ipcRenderer.invoke('feeds:delete', feedId),
     test: (feedId: number) => ipcRenderer.invoke('feeds:test', feedId),
-    update: (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }) => ipcRenderer.invoke('feeds:update', feedId, updates),
+    update: (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL' }) => ipcRenderer.invoke('feeds:update', feedId, updates),
+    linkDetail: (summaryFeedId: number, detailFeedId: number) => ipcRenderer.invoke('feeds:linkDetail', summaryFeedId, detailFeedId),
+    unlinkDetail: (summaryFeedId: number) => ipcRenderer.invoke('feeds:unlinkDetail', summaryFeedId),
+    getDetailFeeds: () => ipcRenderer.invoke('feeds:getDetailFeeds'),
   },
 
   // Settings

@@ -170,8 +170,20 @@ export function registerIpcHandlers(): void {
     return feedService.testFeed(feedId);
   });
 
-  ipcMain.handle('feeds:update', async (_, feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }) => {
+  ipcMain.handle('feeds:update', async (_, feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL' }) => {
     return feedService.updateFeed(feedId, updates);
+  });
+
+  ipcMain.handle('feeds:linkDetail', async (_, summaryFeedId: number, detailFeedId: number) => {
+    return feedService.linkDetailFeed(summaryFeedId, detailFeedId);
+  });
+
+  ipcMain.handle('feeds:unlinkDetail', async (_, summaryFeedId: number) => {
+    return feedService.unlinkDetailFeed(summaryFeedId);
+  });
+
+  ipcMain.handle('feeds:getDetailFeeds', async () => {
+    return feedService.getDetailFeeds();
   });
 
   // ============================================

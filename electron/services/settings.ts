@@ -82,6 +82,7 @@ export const SettingKeys = {
   THEME: 'theme',
   GITHUB_TOKEN: 'github_token',
   DATE_LOOKBACK_DAYS: 'date_lookback_days',
+  ADAPTIVE_SYNC_ENABLED: 'adaptive_sync_enabled',
 } as const;
 
 // Default values
@@ -90,6 +91,7 @@ export const SettingDefaults = {
   [SettingKeys.AUTO_SYNC_ENABLED]: 'true',
   [SettingKeys.THEME]: 'dark',
   [SettingKeys.DATE_LOOKBACK_DAYS]: '730', // 2 years default
+  [SettingKeys.ADAPTIVE_SYNC_ENABLED]: 'true', // Enable adaptive sync by default
 } as const;
 
 /**
@@ -122,4 +124,9 @@ export function setWindowBounds(bounds: { x: number; y: number; width: number; h
 export function getDateLookbackDays(): number {
   const value = getSetting(SettingKeys.DATE_LOOKBACK_DAYS);
   return value ? parseInt(value, 10) : parseInt(SettingDefaults[SettingKeys.DATE_LOOKBACK_DAYS], 10);
+}
+
+export function isAdaptiveSyncEnabled(): boolean {
+  const value = getSetting(SettingKeys.ADAPTIVE_SYNC_ENABLED);
+  return value ? value === 'true' : SettingDefaults[SettingKeys.ADAPTIVE_SYNC_ENABLED] === 'true';
 }

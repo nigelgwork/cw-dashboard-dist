@@ -107,6 +107,16 @@ async function runMigration(version: number): Promise<void> {
         console.log('raw_data column may already exist:', e);
       }
       break;
+    case 3:
+      // Add detail_feed_id column for adaptive sync and update feed_type constraint
+      console.log('Adding detail_feed_id column to atom_feeds table');
+      try {
+        db.exec('ALTER TABLE atom_feeds ADD COLUMN detail_feed_id INTEGER REFERENCES atom_feeds(id) ON DELETE SET NULL');
+      } catch (e) {
+        // Column might already exist
+        console.log('detail_feed_id column may already exist:', e);
+      }
+      break;
     default:
       console.log(`No migration needed for version ${version}`);
   }

@@ -68,13 +68,14 @@ export function transformServiceTicket(api: ServiceTicketAPI): ServiceTicket {
   };
 }
 
-export type FeedType = 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+export type FeedType = 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL';
 
 export interface AtomFeed {
   id: number;
   name: string;
   feedType: FeedType;
   feedUrl: string;
+  detailFeedId: number | null;
   isActive: boolean;
   lastSync: string | null;
   createdAt: string;
@@ -86,6 +87,7 @@ export interface AtomFeedAPI {
   name: string;
   feed_type: string;
   feed_url: string;
+  detail_feed_id: number | null;
   is_active: boolean;
   last_sync: string | null;
   created_at: string;
@@ -98,6 +100,7 @@ export function transformAtomFeed(api: AtomFeedAPI): AtomFeed {
     name: api.name,
     feedType: api.feed_type as FeedType,
     feedUrl: api.feed_url,
+    detailFeedId: api.detail_feed_id,
     isActive: api.is_active,
     lastSync: api.last_sync,
     createdAt: api.created_at,

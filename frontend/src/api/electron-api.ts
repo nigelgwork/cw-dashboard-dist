@@ -316,8 +316,9 @@ export const electronSyncApi = {
 export interface AtomFeed {
   id: number;
   name: string;
-  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL';
   feedUrl: string;
+  detailFeedId: number | null;
   lastSync: string | null;
   isActive: boolean;
   createdAt: string;
@@ -356,9 +357,24 @@ export const electronFeedsApi = {
     return api.feeds.test(feedId);
   },
 
-  update: async (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }): Promise<AtomFeed | null> => {
+  update: async (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL' }): Promise<AtomFeed | null> => {
     const api = getElectronAPI();
     return api.feeds.update(feedId, updates);
+  },
+
+  linkDetail: async (summaryFeedId: number, detailFeedId: number): Promise<AtomFeed | null> => {
+    const api = getElectronAPI();
+    return api.feeds.linkDetail(summaryFeedId, detailFeedId);
+  },
+
+  unlinkDetail: async (summaryFeedId: number): Promise<AtomFeed | null> => {
+    const api = getElectronAPI();
+    return api.feeds.unlinkDetail(summaryFeedId);
+  },
+
+  getDetailFeeds: async (): Promise<AtomFeed[]> => {
+    const api = getElectronAPI();
+    return api.feeds.getDetailFeeds();
   },
 };
 

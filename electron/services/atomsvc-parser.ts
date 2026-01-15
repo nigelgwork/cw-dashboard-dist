@@ -3,7 +3,7 @@ import { parseStringPromise } from 'xml2js';
 export interface ParsedAtomFeed {
   name: string;
   feedUrl: string;
-  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+  feedType: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL';
 }
 
 /**
@@ -339,12 +339,23 @@ export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: 
 /**
  * Detect feed type based on URL content and title
  */
-function detectFeedType(url: string, title: string = ''): 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' {
+function detectFeedType(url: string, title: string = ''): 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL' {
   const lowerUrl = url.toLowerCase();
   const lowerTitle = title.toLowerCase();
   const combined = lowerUrl + ' ' + lowerTitle;
 
-  // Check for service tickets patterns first (more specific)
+  // Check for project detail feeds first (most specific)
+  // These have a ProjectNo or Project_ID parameter and often contain "detail" or "summary detailed"
+  const hasProjectIdParam = lowerUrl.includes('projectno=') || lowerUrl.includes('project_id=') ||
+                            lowerUrl.includes('projectid=');
+  const isDetailReport = combined.includes('detail') || combined.includes('summary detailed');
+
+  if (hasProjectIdParam && combined.includes('project')) {
+    console.log('[AtomSvcParser] Detected PROJECT_DETAIL feed (has ProjectNo/ProjectID parameter)');
+    return 'PROJECT_DETAIL';
+  }
+
+  // Check for service tickets patterns
   if (combined.includes('ticket') || combined.includes('service') ||
       combined.includes('helpdesk') || combined.includes('support') ||
       combined.includes('incident') || combined.includes('sr ') ||
@@ -359,7 +370,7 @@ function detectFeedType(url: string, title: string = ''): 'PROJECTS' | 'OPPORTUN
     return 'OPPORTUNITIES';
   }
 
-  // Check for projects
+  // Check for projects (summary/list feeds)
   if (combined.includes('project') || combined.includes('pm ') || combined.includes('project%20')) {
     return 'PROJECTS';
   }
@@ -517,5 +528,76 @@ export function applyDynamicDates(url: string, lookbackDays: number = 730): stri
     console.error('[AtomSvcParser] Error applying dynamic dates:', error);
     // Return original URL if processing fails
     return url;
+  }
+}
+
+/**
+ * Parameters in detail feed URLs that contain the project ID placeholder
+ */
+const PROJECT_ID_PARAMETERS = [
+  'ProjectNo',
+  'Project_No',
+  'ProjectID',
+  'Project_ID',
+  'ProjectId',
+  'Project_Id',
+];
+
+/**
+ * Create a detail feed URL for a specific project
+ *
+ * Takes a detail feed URL template (from an imported ATOMSVC) and substitutes
+ * the project ID parameter with the actual project ID.
+ *
+ * @param detailFeedUrl The detail feed URL template
+ * @param projectId The project ID to substitute
+ * @returns URL with the project ID substituted
+ */
+export function createDetailFeedUrl(detailFeedUrl: string, projectId: string): string {
+  try {
+    const urlObj = new URL(detailFeedUrl);
+    const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
+
+    // Parse query string
+    const queryString = urlObj.search.substring(1);
+    const parts = queryString.split('&');
+
+    const updatedParts: string[] = [];
+    let projectIdFound = false;
+
+    for (const part of parts) {
+      if (!part) continue;
+
+      const eqIndex = part.indexOf('=');
+      if (eqIndex === -1) {
+        // No = sign, keep as-is (likely report path)
+        updatedParts.push(part);
+        continue;
+      }
+
+      const key = part.substring(0, eqIndex);
+
+      // Check if this is a project ID parameter
+      const isProjectIdParam = PROJECT_ID_PARAMETERS.some(p =>
+        p.toLowerCase() === key.toLowerCase()
+      );
+
+      if (isProjectIdParam) {
+        // Replace with our project ID
+        updatedParts.push(`${key}=${encodeURIComponent(projectId)}`);
+        projectIdFound = true;
+      } else {
+        updatedParts.push(part);
+      }
+    }
+
+    if (!projectIdFound) {
+      console.warn(`[AtomSvcParser] No project ID parameter found in detail feed URL`);
+    }
+
+    return baseUrl + '?' + updatedParts.join('&');
+  } catch (error) {
+    console.error('[AtomSvcParser] Error creating detail feed URL:', error);
+    return detailFeedUrl;
   }
 }

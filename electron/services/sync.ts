@@ -156,7 +156,8 @@ async function executeSyncInBackground(
 
       let result;
       if (syncType === 'PROJECTS') {
-        result = await syncProjects(feed.feedUrl, syncHistoryId);
+        // Pass feedId for adaptive sync (to look up linked detail feed)
+        result = await syncProjects(feed.feedUrl, syncHistoryId, feed.id);
       } else if (syncType === 'OPPORTUNITIES') {
         result = await syncOpportunities(feed.feedUrl, syncHistoryId);
       } else {

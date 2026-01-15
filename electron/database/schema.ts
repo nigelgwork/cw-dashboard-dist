@@ -3,7 +3,7 @@
  * Equivalent to the PostgreSQL schema from the original backend
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const createTablesSQL = `
 -- Projects table
@@ -120,12 +120,14 @@ CREATE INDEX IF NOT EXISTS idx_sync_changes_sync_history_id ON sync_changes(sync
 CREATE TABLE IF NOT EXISTS atom_feeds (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    feed_type TEXT NOT NULL CHECK (feed_type IN ('PROJECTS', 'OPPORTUNITIES', 'SERVICE_TICKETS')),
+    feed_type TEXT NOT NULL CHECK (feed_type IN ('PROJECTS', 'OPPORTUNITIES', 'SERVICE_TICKETS', 'PROJECT_DETAIL')),
     feed_url TEXT NOT NULL,
+    detail_feed_id INTEGER,
     last_sync TEXT,
     is_active INTEGER DEFAULT 1,
     created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    updated_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (detail_feed_id) REFERENCES atom_feeds(id) ON DELETE SET NULL
 );
 
 -- Application settings (key-value store)
@@ -234,8 +236,9 @@ export interface ServiceTicketRow {
 export interface AtomFeedRow {
   id: number;
   name: string;
-  feed_type: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
+  feed_type: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL';
   feed_url: string;
+  detail_feed_id: number | null;
   last_sync: string | null;
   is_active: number;
   created_at: string;
