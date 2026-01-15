@@ -14,6 +14,9 @@ import {
   Pencil,
   Save,
   X,
+  Copy,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { electronFeedsApi, isElectron } from '../../api/electron-api';
 import { feedsApi } from '../../api/feeds';
@@ -71,6 +74,7 @@ interface FeedCardProps {
 }
 
 function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
+  const { showToast } = useToast();
   const [testing, setTesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -78,6 +82,7 @@ function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
   const [editName, setEditName] = useState(feed.name);
   const [editType, setEditType] = useState<FeedType>(feed.feedType);
   const [testResult, setTestResult] = useState<FeedTestResult | null>(null);
+  const [urlExpanded, setUrlExpanded] = useState(false);
 
   const TypeIcon = getFeedTypeIcon(editing ? editType : feed.feedType);
   const { text: typeColor, bg: typeBgColor } = getFeedTypeColor(editing ? editType : feed.feedType);
@@ -224,13 +229,39 @@ function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
 
       {/* Feed URL */}
       <div className="mb-3">
-        <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
-          <ExternalLink size={12} />
-          <span>Feed URL</span>
+        <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+          <div className="flex items-center gap-2">
+            <ExternalLink size={12} />
+            <span>Feed URL ({feed.feedUrl.length} chars)</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(feed.feedUrl);
+                showToast('success', 'URL copied to clipboard');
+              }}
+              className="p-1 hover:bg-board-border rounded transition-colors"
+              title="Copy full URL"
+            >
+              <Copy size={12} />
+            </button>
+            <button
+              onClick={() => setUrlExpanded(!urlExpanded)}
+              className="p-1 hover:bg-board-border rounded transition-colors"
+              title={urlExpanded ? 'Collapse URL' : 'Expand URL'}
+            >
+              {urlExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          </div>
         </div>
-        <p className="text-xs text-gray-300 font-mono bg-board-panel/50 px-2 py-1 rounded truncate" title={feed.feedUrl}>
+        <div
+          className={`text-xs text-gray-300 font-mono bg-board-panel/50 px-2 py-1 rounded ${
+            urlExpanded ? 'break-all whitespace-pre-wrap max-h-40 overflow-y-auto' : 'truncate'
+          }`}
+          title={urlExpanded ? undefined : feed.feedUrl}
+        >
           {feed.feedUrl}
-        </p>
+        </div>
       </div>
 
       {/* Last Sync */}
@@ -241,19 +272,26 @@ function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
 
       {/* Test Result */}
       {testResult && (
-        <div className={`mt-3 px-2 py-1.5 rounded text-xs flex items-center gap-2 ${
+        <div className={`mt-3 px-2 py-1.5 rounded text-xs ${
           testResult.success ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
         }`}>
           {testResult.success ? (
-            <>
+            <div className="flex items-center gap-2">
               <CheckCircle size={14} />
               <span>Connection successful</span>
-            </>
+            </div>
           ) : (
-            <>
-              <XCircle size={14} />
-              <span>{testResult.error || 'Connection failed'}</span>
-            </>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <XCircle size={14} className="flex-shrink-0" />
+                <span className="font-medium">Connection failed</span>
+              </div>
+              {testResult.error && (
+                <div className="text-red-300 break-all whitespace-pre-wrap max-h-32 overflow-y-auto pl-5">
+                  {testResult.error}
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}

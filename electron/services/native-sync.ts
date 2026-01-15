@@ -29,7 +29,8 @@ interface AtomEntry {
  * Fetch ATOM feed using Electron's session.fetch (supports Windows Integrated Auth/NTLM)
  */
 export async function fetchAtomFeed(url: string): Promise<string> {
-  console.log(`[NativeSync] Fetching: ${url}`);
+  console.log(`[NativeSync] Fetching URL (length: ${url.length}):`);
+  console.log(`[NativeSync] URL: ${url.substring(0, 500)}${url.length > 500 ? '...' : ''}`);
 
   try {
     // Use session.defaultSession.fetch which integrates with NTLM credentials
@@ -39,10 +40,22 @@ export async function fetchAtomFeed(url: string): Promise<string> {
     });
 
     console.log(`[NativeSync] Response status: ${response.status}`);
+    console.log(`[NativeSync] Response headers:`, Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`HTTP ${response.status}: ${errorText.substring(0, 200)}`);
+      console.error(`[NativeSync] Full error response (${errorText.length} bytes):`);
+      console.error(errorText);
+
+      // Try to extract meaningful error from SSRS HTML response
+      const errorMatch = errorText.match(/<div[^>]*class="[^"]*rsDetailedMessageDiv[^"]*"[^>]*>([\s\S]*?)<\/div>/i) ||
+                         errorText.match(/<span[^>]*class="[^"]*rsErrorMessage[^"]*"[^>]*>([\s\S]*?)<\/span>/i) ||
+                         errorText.match(/<b>Exception Details:<\/b>([\s\S]*?)<br\s*\/?>/i) ||
+                         errorText.match(/<p>(rsProcessingAborted|rsErrorExecutingCommand|rsReportNotReady)[\s\S]*?<\/p>/i);
+
+      const extractedError = errorMatch ? errorMatch[1].replace(/<[^>]*>/g, '').trim() : null;
+
+      throw new Error(`HTTP ${response.status}: ${extractedError || errorText.substring(0, 500)}`);
     }
 
     const responseData = await response.text();
