@@ -66,7 +66,14 @@ export async function parseAtomSvcFile(content: string): Promise<ParsedAtomFeed[
           const collections = workspace.collection;
           const collectionCount = collections.length;
 
-          for (let i = 0; i < collectionCount; i++) {
+          // Only import the first collection - additional collections are usually
+          // summaries, charts, or secondary data regions that aren't needed for sync
+          if (collectionCount > 1) {
+            console.log(`[AtomSvcParser] Found ${collectionCount} collections, importing only the first one`);
+          }
+
+          // Just process the first collection
+          for (let i = 0; i < Math.min(1, collectionCount); i++) {
             const collection = collections[i];
             console.log('[AtomSvcParser] Collection:', JSON.stringify(collection, null, 2));
 
@@ -90,10 +97,6 @@ export async function parseAtomSvcFile(content: string): Promise<ParsedAtomFeed[
 
               if (isGenericName && workspaceTitle) {
                 feedName = workspaceTitle;
-                // If multiple collections with generic names, add suffix
-                if (collectionCount > 1) {
-                  feedName = `${workspaceTitle} (${i + 1})`;
-                }
               }
 
               console.log(`[AtomSvcParser] Final feed name: "${feedName}"`);
@@ -173,6 +176,13 @@ const DATA_PARAMETERS = [
 ];
 
 /**
+ * Maximum number of values for a single parameter before we consider it
+ * a "Select All" and remove it entirely. SSRS exports "Select All" as
+ * individual values which makes URLs too long.
+ */
+const MAX_PARAMETER_VALUES = 30;
+
+/**
  * Parameters that should be kept as filters
  */
 const FILTER_PARAMETERS = [
@@ -234,10 +244,11 @@ export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: 
     // Parse query string manually since SSRS uses non-standard format
     // The first "parameter" is actually the report path (starts with %2F or /)
     const queryString = urlObj.search.substring(1); // Remove leading ?
-    const params: Array<{ key: string; value: string }> = [];
+    const allParams: Array<{ key: string; value: string }> = [];
     let reportPath = '';
 
-    // Split by & but be careful with URL encoding
+    // First pass: collect all parameters and count occurrences
+    const paramCounts: Record<string, number> = {};
     const parts = queryString.split('&');
 
     for (const part of parts) {
@@ -255,15 +266,32 @@ export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: 
       const key = part.substring(0, eqIndex);
       const value = part.substring(eqIndex + 1);
 
-      // Check if this is an SSRS command parameter (keep these)
+      allParams.push({ key, value });
+      paramCounts[key] = (paramCounts[key] || 0) + 1;
+    }
+
+    // Log parameters with high counts
+    for (const [key, count] of Object.entries(paramCounts)) {
+      if (count > MAX_PARAMETER_VALUES) {
+        console.log(`[AtomSvcParser] Parameter "${key}" has ${count} values (exceeds max ${MAX_PARAMETER_VALUES}) - will be removed as "Select All"`);
+      }
+    }
+
+    // Second pass: filter parameters
+    const filteredParams: Array<{ key: string; value: string }> = [];
+
+    for (const param of allParams) {
+      const { key, value } = param;
+
+      // Check if this is an SSRS command parameter (always keep)
       if (key.startsWith('rs:') || key.startsWith('rs%3A') ||
           key.startsWith('rc:') || key.startsWith('rc%3A')) {
-        params.push({ key, value });
-        keptParams.push(key);
+        filteredParams.push({ key, value });
+        if (!keptParams.includes(key)) keptParams.push(key);
         continue;
       }
 
-      // Check if this is a data parameter (remove these)
+      // Check if this is a data parameter (always remove)
       const isDataParam = DATA_PARAMETERS.some(dp =>
         key.toLowerCase() === dp.toLowerCase()
       );
@@ -273,8 +301,14 @@ export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: 
         continue;
       }
 
-      // Keep all other parameters (filters)
-      params.push({ key, value });
+      // Check if this parameter has too many values (treat as "Select All" and remove)
+      if (paramCounts[key] > MAX_PARAMETER_VALUES) {
+        removedParams.push(key);
+        continue;
+      }
+
+      // Keep this parameter
+      filteredParams.push({ key, value });
       if (!keptParams.includes(key)) {
         keptParams.push(key);
       }
@@ -283,16 +317,18 @@ export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: 
     // Reconstruct the URL
     let cleanedUrl = baseUrl + '?' + reportPath;
 
-    for (const param of params) {
+    for (const param of filteredParams) {
       cleanedUrl += '&' + param.key + '=' + param.value;
     }
 
-    console.log(`[AtomSvcParser] Cleaned URL: removed ${removedParams.length} data params, kept ${keptParams.length} filter params`);
-    if (removedParams.length > 0) {
-      console.log(`[AtomSvcParser] Removed parameters: ${[...new Set(removedParams)].join(', ')}`);
+    const uniqueRemoved = [...new Set(removedParams)];
+    console.log(`[AtomSvcParser] Cleaned URL: removed ${uniqueRemoved.length} parameter types, kept ${keptParams.length} parameter types`);
+    console.log(`[AtomSvcParser] URL length: ${url.length} -> ${cleanedUrl.length} chars`);
+    if (uniqueRemoved.length > 0) {
+      console.log(`[AtomSvcParser] Removed parameters: ${uniqueRemoved.join(', ')}`);
     }
 
-    return { cleanedUrl, removedParams: [...new Set(removedParams)], keptParams };
+    return { cleanedUrl, removedParams: uniqueRemoved, keptParams };
   } catch (error) {
     console.error('[AtomSvcParser] Error cleaning URL:', error);
     // Return original URL if cleaning fails
