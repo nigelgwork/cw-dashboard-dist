@@ -56,7 +56,30 @@ export async function initDatabase(): Promise<void> {
   // Initialize default settings if not present
   initializeDefaultSettings();
 
+  // Clean up stale syncs from previous sessions
+  cleanupStaleSyncs();
+
   console.log('Database initialized successfully');
+}
+
+/**
+ * Clean up any syncs that were left in PENDING or RUNNING state from a previous session
+ */
+function cleanupStaleSyncs(): void {
+  if (!db) return;
+
+  const stale = db.prepare("SELECT COUNT(*) as count FROM sync_history WHERE status IN ('PENDING', 'RUNNING')").get() as { count: number };
+
+  if (stale.count > 0) {
+    console.log(`[Database] Cleaning up ${stale.count} stale sync(s) from previous session`);
+    db.prepare(`
+      UPDATE sync_history
+      SET status = 'FAILED',
+          error_message = 'Sync interrupted by app restart',
+          completed_at = datetime('now')
+      WHERE status IN ('PENDING', 'RUNNING')
+    `).run();
+  }
 }
 
 /**
