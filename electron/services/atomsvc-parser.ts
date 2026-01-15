@@ -606,12 +606,16 @@ export function createDetailFeedUrl(detailFeedUrl: string, projectId: string): s
       }
 
       const key = part.substring(0, eqIndex);
+      const value = part.substring(eqIndex + 1);
       const decodedKey = decodeURIComponent(key);
 
-      // Skip rc:ItemPath - this parameter specifies a specific data region (tablix)
-      // which may be empty. Removing it returns all data or the default region.
+      // Replace rc:ItemPath with Tablix1 - the original tablix (e.g. Tablix21) may be empty
+      // Tablix1 typically contains header info (Company, Name, Status, End_Date)
+      // Tablix2 typically contains financial data (Quoted, Estimated_Cost, etc.)
       if (decodedKey.toLowerCase() === 'rc:itempath') {
-        console.log(`[AtomSvcParser] Removing rc:ItemPath parameter to get all data regions`);
+        const oldValue = decodeURIComponent(value);
+        console.log(`[AtomSvcParser] Replacing rc:ItemPath=${oldValue} with Tablix1`);
+        updatedParts.push(`${key}=Tablix1`);
         continue;
       }
 
