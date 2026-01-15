@@ -16,7 +16,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import AtomFeedManager from './AtomFeedManager';
-import { isElectron, electronUpdatesApi, electronSettingsApi, electronProjectsApi, electronOpportunitiesApi, electronServiceTicketsApi, electronFeedsApi, ProjectDetailDiagnostics, FeedDetailDiagnostics } from '../../api/electron-api';
+import { isElectron, electronUpdatesApi, electronSettingsApi, electronProjectsApi, electronOpportunitiesApi, electronServiceTicketsApi, electronFeedsApi, ProjectDetailDiagnostics, FeedDetailDiagnostics, TestFetchDetailResult } from '../../api/electron-api';
 import { useToast } from '../../context/ToastContext';
 
 type SettingsTab = 'feeds' | 'sync' | 'detail-fields' | 'data' | 'updates' | 'about';
@@ -84,6 +84,8 @@ export default function SettingsPanel() {
   const [projectDiagnostics, setProjectDiagnostics] = useState<ProjectDetailDiagnostics | null>(null);
   const [feedDiagnostics, setFeedDiagnostics] = useState<FeedDetailDiagnostics | null>(null);
   const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
+  const [testResult, setTestResult] = useState<TestFetchDetailResult | null>(null);
+  const [testingFetch, setTestingFetch] = useState(false);
 
   useEffect(() => {
     if (!isElectron()) return;
@@ -169,6 +171,23 @@ export default function SettingsPanel() {
       console.error('Failed to load diagnostics:', err);
     } finally {
       setLoadingDiagnostics(false);
+    }
+  };
+
+  const handleTestFetchDetail = async () => {
+    if (!isElectron()) return;
+    setTestingFetch(true);
+    setTestResult(null);
+    try {
+      const result = await electronFeedsApi.testFetchProjectDetail();
+      setTestResult(result);
+    } catch (err) {
+      setTestResult({
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      });
+    } finally {
+      setTestingFetch(false);
     }
   };
 
@@ -534,6 +553,63 @@ export default function SettingsPanel() {
                                   {projectDiagnostics.projectsWithDetailData === 0 && projectDiagnostics.totalProjects > 0 && (
                                     <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
                                       Projects exist but have no detail data. Run a sync after linking feeds.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Test Fetch Button */}
+                              <div className="pt-3 border-t border-board-border">
+                                <button
+                                  onClick={handleTestFetchDetail}
+                                  disabled={testingFetch}
+                                  className="flex items-center gap-2 px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 text-white rounded transition-colors"
+                                >
+                                  {testingFetch ? (
+                                    <>
+                                      <Loader2 size={12} className="animate-spin" />
+                                      Testing...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Download size={12} />
+                                      Test Fetch Detail for One Project
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+
+                              {/* Test Result */}
+                              {testResult && (
+                                <div className={`mt-3 p-3 rounded text-xs ${testResult.success ? 'bg-green-500/10 border border-green-500/30' : 'bg-red-500/10 border border-red-500/30'}`}>
+                                  {testResult.success ? (
+                                    <div className="space-y-2">
+                                      <div className="flex items-center gap-2 text-green-400">
+                                        <CheckCircle size={14} />
+                                        <span className="font-medium">Success! Found {testResult.fieldCount} fields for project {testResult.projectId}</span>
+                                      </div>
+                                      {testResult.fields && (
+                                        <div className="mt-2 max-h-64 overflow-y-auto">
+                                          <div className="text-gray-400 mb-2">All fields from detail feed:</div>
+                                          <div className="space-y-1 font-mono text-xs">
+                                            {Object.entries(testResult.fields).map(([key, value]) => (
+                                              <div key={key} className="flex gap-2">
+                                                <span className="text-purple-400 font-medium min-w-[150px]">{key}:</span>
+                                                <span className="text-gray-300 break-all">{String(value)}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-start gap-2 text-red-400">
+                                      <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                                      <div>
+                                        <div className="font-medium">Test Failed</div>
+                                        {testResult.projectId && <div className="text-gray-400">Project ID: {testResult.projectId}</div>}
+                                        <div className="text-red-300 mt-1">{testResult.error}</div>
+                                      </div>
                                     </div>
                                   )}
                                 </div>

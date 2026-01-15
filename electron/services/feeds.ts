@@ -232,6 +232,72 @@ export function getDetailFeeds(): AtomFeed[] {
 }
 
 /**
+ * Test fetch detail for a single project to see all available fields
+ */
+export async function testFetchProjectDetail(): Promise<{
+  success: boolean;
+  projectId?: string;
+  fieldCount?: number;
+  fields?: Record<string, unknown>;
+  error?: string;
+}> {
+  const db = getDatabase();
+
+  // Get a linked PROJECTS feed
+  const projectsFeed = db.prepare(`
+    SELECT pf.*, df.feed_url as detail_feed_url
+    FROM atom_feeds pf
+    JOIN atom_feeds df ON pf.detail_feed_id = df.id
+    WHERE pf.feed_type = 'PROJECTS' AND pf.detail_feed_id IS NOT NULL AND pf.is_active = 1
+    LIMIT 1
+  `).get() as (AtomFeedRow & { detail_feed_url: string }) | undefined;
+
+  if (!projectsFeed) {
+    return {
+      success: false,
+      error: 'No PROJECTS feed with linked detail feed found. Please link a PROJECT_DETAIL feed first.',
+    };
+  }
+
+  // Get a project to test with
+  const project = db.prepare('SELECT external_id FROM projects LIMIT 1').get() as { external_id: string } | undefined;
+
+  if (!project) {
+    return {
+      success: false,
+      error: 'No projects in database. Please run a sync first.',
+    };
+  }
+
+  try {
+    // Import fetchProjectDetail dynamically to avoid circular dependency
+    const { fetchProjectDetail } = await import('./native-sync');
+    const result = await fetchProjectDetail(projectsFeed.detail_feed_url, project.external_id);
+
+    if (!result) {
+      return {
+        success: false,
+        projectId: project.external_id,
+        error: `No detail data returned for project ${project.external_id}. The detail feed may not have data for this project ID.`,
+      };
+    }
+
+    return {
+      success: true,
+      projectId: project.external_id,
+      fieldCount: Object.keys(result.allFields).length,
+      fields: result.allFields,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      projectId: project.external_id,
+      error: err instanceof Error ? err.message : 'Unknown error fetching detail',
+    };
+  }
+}
+
+/**
  * Get comprehensive diagnostics for detail sync troubleshooting
  */
 export function getDetailSyncConfigDiagnostics(): {

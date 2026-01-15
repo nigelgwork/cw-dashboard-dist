@@ -398,6 +398,11 @@ export const electronFeedsApi = {
     const api = getElectronAPI();
     return api.feeds.getDetailSyncDiagnostics();
   },
+
+  testFetchProjectDetail: async (): Promise<TestFetchDetailResult> => {
+    const api = getElectronAPI();
+    return api.feeds.testFetchProjectDetail();
+  },
 };
 
 export interface FeedDetailDiagnostics {
@@ -405,6 +410,14 @@ export interface FeedDetailDiagnostics {
   projectsFeeds: { id: number; name: string; isActive: boolean; hasDetailLink: boolean; detailFeedId: number | null }[];
   detailFeeds: { id: number; name: string; isActive: boolean; feedUrl: string }[];
   linkedPairs: { projectsFeedId: number; projectsFeedName: string; detailFeedId: number; detailFeedName: string }[];
+}
+
+export interface TestFetchDetailResult {
+  success: boolean;
+  projectId?: string;
+  fieldCount?: number;
+  fields?: Record<string, unknown>;
+  error?: string;
 }
 
 // ============================================

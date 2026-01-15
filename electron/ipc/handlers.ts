@@ -194,6 +194,10 @@ export function registerIpcHandlers(): void {
     return feedService.getDetailSyncConfigDiagnostics();
   });
 
+  ipcMain.handle('feeds:testFetchProjectDetail', async () => {
+    return feedService.testFetchProjectDetail();
+  });
+
   ipcMain.handle('projects:getDetailSyncDiagnostics', async () => {
     return projectService.getDetailSyncDiagnostics();
   });
