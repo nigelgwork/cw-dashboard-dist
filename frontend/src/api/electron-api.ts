@@ -399,9 +399,9 @@ export const electronFeedsApi = {
     return api.feeds.getDetailSyncDiagnostics();
   },
 
-  testFetchProjectDetail: async (): Promise<TestFetchDetailResult> => {
+  testFetchProjectDetail: async (projectId?: string): Promise<TestFetchDetailResult> => {
     const api = getElectronAPI();
-    return api.feeds.testFetchProjectDetail();
+    return api.feeds.testFetchProjectDetail(projectId);
   },
 };
 
@@ -418,6 +418,12 @@ export interface TestFetchDetailResult {
   fieldCount?: number;
   fields?: Record<string, unknown>;
   error?: string;
+  debug?: {
+    detailFeedUrl: string;
+    constructedUrl: string;
+    xmlLength?: number;
+    xmlPreview?: string;
+  };
 }
 
 // ============================================

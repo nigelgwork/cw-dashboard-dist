@@ -233,13 +233,20 @@ export function getDetailFeeds(): AtomFeed[] {
 
 /**
  * Test fetch detail for a single project to see all available fields
+ * @param specificProjectId - Optional specific project ID to test with
  */
-export async function testFetchProjectDetail(): Promise<{
+export async function testFetchProjectDetail(specificProjectId?: string): Promise<{
   success: boolean;
   projectId?: string;
   fieldCount?: number;
   fields?: Record<string, unknown>;
   error?: string;
+  debug?: {
+    detailFeedUrl: string;
+    constructedUrl: string;
+    xmlLength?: number;
+    xmlPreview?: string;
+  };
 }> {
   const db = getDatabase();
 
@@ -259,39 +266,72 @@ export async function testFetchProjectDetail(): Promise<{
     };
   }
 
-  // Get a project to test with
-  const project = db.prepare('SELECT external_id FROM projects LIMIT 1').get() as { external_id: string } | undefined;
-
-  if (!project) {
-    return {
-      success: false,
-      error: 'No projects in database. Please run a sync first.',
-    };
+  // Get a project to test with - use specific ID if provided
+  let projectId: string;
+  if (specificProjectId) {
+    projectId = specificProjectId;
+  } else {
+    const project = db.prepare('SELECT external_id FROM projects LIMIT 1').get() as { external_id: string } | undefined;
+    if (!project) {
+      return {
+        success: false,
+        error: 'No projects in database. Please run a sync first.',
+      };
+    }
+    projectId = project.external_id;
   }
 
   try {
-    // Import fetchProjectDetail dynamically to avoid circular dependency
-    const { fetchProjectDetail } = await import('./native-sync');
-    const result = await fetchProjectDetail(projectsFeed.detail_feed_url, project.external_id);
+    // Import functions dynamically to avoid circular dependency
+    const { fetchProjectDetail, fetchAtomFeed } = await import('./native-sync');
+    const { createDetailFeedUrl } = await import('./atomsvc-parser');
+
+    // Create the URL that would be used
+    const constructedUrl = createDetailFeedUrl(projectsFeed.detail_feed_url, projectId);
+
+    // Try to fetch the raw XML for debugging
+    let xmlLength: number | undefined;
+    let xmlPreview: string | undefined;
+    try {
+      const xmlContent = await fetchAtomFeed(constructedUrl);
+      xmlLength = xmlContent.length;
+      // Show first 500 chars of XML for debugging
+      xmlPreview = xmlContent.substring(0, 500);
+    } catch (fetchErr) {
+      // Ignore - we'll show the main error
+    }
+
+    const result = await fetchProjectDetail(projectsFeed.detail_feed_url, projectId);
 
     if (!result) {
       return {
         success: false,
-        projectId: project.external_id,
-        error: `No detail data returned for project ${project.external_id}. The detail feed may not have data for this project ID.`,
+        projectId: projectId,
+        error: `No detail data returned for project ${projectId}. The detail feed may not have data for this project ID.`,
+        debug: {
+          detailFeedUrl: projectsFeed.detail_feed_url,
+          constructedUrl,
+          xmlLength,
+          xmlPreview,
+        },
       };
     }
 
     return {
       success: true,
-      projectId: project.external_id,
+      projectId: projectId,
       fieldCount: Object.keys(result.allFields).length,
       fields: result.allFields,
+      debug: {
+        detailFeedUrl: projectsFeed.detail_feed_url,
+        constructedUrl,
+        xmlLength,
+      },
     };
   } catch (err) {
     return {
       success: false,
-      projectId: project.external_id,
+      projectId: projectId,
       error: err instanceof Error ? err.message : 'Unknown error fetching detail',
     };
   }

@@ -86,6 +86,7 @@ export default function SettingsPanel() {
   const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
   const [testResult, setTestResult] = useState<TestFetchDetailResult | null>(null);
   const [testingFetch, setTestingFetch] = useState(false);
+  const [testProjectId, setTestProjectId] = useState('');
 
   useEffect(() => {
     if (!isElectron()) return;
@@ -179,7 +180,8 @@ export default function SettingsPanel() {
     setTestingFetch(true);
     setTestResult(null);
     try {
-      const result = await electronFeedsApi.testFetchProjectDetail();
+      // Pass project ID if user entered one, otherwise use default
+      const result = await electronFeedsApi.testFetchProjectDetail(testProjectId || undefined);
       setTestResult(result);
     } catch (err) {
       setTestResult({
@@ -559,24 +561,34 @@ export default function SettingsPanel() {
                               )}
 
                               {/* Test Fetch Button */}
-                              <div className="pt-3 border-t border-board-border">
-                                <button
-                                  onClick={handleTestFetchDetail}
-                                  disabled={testingFetch}
-                                  className="flex items-center gap-2 px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 text-white rounded transition-colors"
-                                >
-                                  {testingFetch ? (
-                                    <>
-                                      <Loader2 size={12} className="animate-spin" />
-                                      Testing...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Download size={12} />
-                                      Test Fetch Detail for One Project
-                                    </>
-                                  )}
-                                </button>
+                              <div className="pt-3 border-t border-board-border space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={testProjectId}
+                                    onChange={(e) => setTestProjectId(e.target.value)}
+                                    placeholder="Project # (or leave blank for first)"
+                                    className="flex-1 px-2 py-1.5 text-xs bg-board-bg border border-board-border rounded text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                                  />
+                                  <button
+                                    onClick={handleTestFetchDetail}
+                                    disabled={testingFetch}
+                                    className="flex items-center gap-2 px-3 py-1.5 text-xs bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 text-white rounded transition-colors"
+                                  >
+                                    {testingFetch ? (
+                                      <>
+                                        <Loader2 size={12} className="animate-spin" />
+                                        Testing...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Download size={12} />
+                                        Test Fetch
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                                <p className="text-xs text-gray-500">Enter a project number to test, or leave blank to use the first project in the database.</p>
                               </div>
 
                               {/* Test Result */}
@@ -603,13 +615,39 @@ export default function SettingsPanel() {
                                       )}
                                     </div>
                                   ) : (
-                                    <div className="flex items-start gap-2 text-red-400">
-                                      <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
-                                      <div>
-                                        <div className="font-medium">Test Failed</div>
-                                        {testResult.projectId && <div className="text-gray-400">Project ID: {testResult.projectId}</div>}
-                                        <div className="text-red-300 mt-1">{testResult.error}</div>
+                                    <div className="space-y-2">
+                                      <div className="flex items-start gap-2 text-red-400">
+                                        <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+                                        <div>
+                                          <div className="font-medium">Test Failed</div>
+                                          {testResult.projectId && <div className="text-gray-400">Project ID: {testResult.projectId}</div>}
+                                          <div className="text-red-300 mt-1">{testResult.error}</div>
+                                        </div>
                                       </div>
+                                      {/* Debug Info */}
+                                      {testResult.debug && (
+                                        <div className="mt-2 p-2 bg-board-bg rounded space-y-1">
+                                          <div className="text-gray-400 font-medium">Debug Info:</div>
+                                          <div className="font-mono text-xs space-y-1">
+                                            <div>
+                                              <span className="text-gray-500">URL Called: </span>
+                                              <span className="text-gray-300 break-all">{testResult.debug.constructedUrl}</span>
+                                            </div>
+                                            {testResult.debug.xmlLength !== undefined && (
+                                              <div>
+                                                <span className="text-gray-500">Response Size: </span>
+                                                <span className="text-gray-300">{testResult.debug.xmlLength} bytes</span>
+                                              </div>
+                                            )}
+                                            {testResult.debug.xmlPreview && (
+                                              <div>
+                                                <span className="text-gray-500">Response Preview: </span>
+                                                <pre className="text-gray-300 mt-1 whitespace-pre-wrap text-xs max-h-32 overflow-y-auto bg-black/30 p-2 rounded">{testResult.debug.xmlPreview}</pre>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>

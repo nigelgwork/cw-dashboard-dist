@@ -57,7 +57,7 @@ export interface ElectronAPI {
     unlinkDetail: (summaryFeedId: number) => Promise<AtomFeed | null>;
     getDetailFeeds: () => Promise<AtomFeed[]>;
     getDetailSyncDiagnostics: () => Promise<FeedDetailDiagnostics>;
-    testFetchProjectDetail: () => Promise<TestFetchDetailResult>;
+    testFetchProjectDetail: (projectId?: string) => Promise<TestFetchDetailResult>;
   };
 
   // Settings
@@ -268,6 +268,12 @@ interface TestFetchDetailResult {
   fieldCount?: number;
   fields?: Record<string, unknown>;
   error?: string;
+  debug?: {
+    detailFeedUrl: string;
+    constructedUrl: string;
+    xmlLength?: number;
+    xmlPreview?: string;
+  };
 }
 
 // Valid channels for events from main process
@@ -344,7 +350,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     unlinkDetail: (summaryFeedId: number) => ipcRenderer.invoke('feeds:unlinkDetail', summaryFeedId),
     getDetailFeeds: () => ipcRenderer.invoke('feeds:getDetailFeeds'),
     getDetailSyncDiagnostics: () => ipcRenderer.invoke('feeds:getDetailSyncDiagnostics'),
-    testFetchProjectDetail: () => ipcRenderer.invoke('feeds:testFetchProjectDetail'),
+    testFetchProjectDetail: (projectId?: string) => ipcRenderer.invoke('feeds:testFetchProjectDetail', projectId),
   },
 
   // Settings
