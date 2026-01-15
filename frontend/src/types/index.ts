@@ -121,6 +121,7 @@ export interface Project {
   isActive: boolean;
   notes?: string;
   rawData?: string;
+  detailRawData?: string;
   budgetRemaining?: number;
   budgetPercentUsed?: number;
   createdAt: string;
@@ -164,6 +165,7 @@ export interface ProjectAPI {
   is_active: boolean;
   notes?: string;
   raw_data?: string;
+  detail_raw_data?: string;
   budget_remaining?: number;
   budget_percent_used?: number;
   created_at: string;
@@ -202,6 +204,7 @@ export function transformProject(api: ProjectAPI): Project {
     isActive: api.is_active,
     notes: api.notes,
     rawData: api.raw_data,
+    detailRawData: api.detail_raw_data,
     budgetRemaining: api.budget_remaining,
     budgetPercentUsed: api.budget_percent_used,
     createdAt: api.created_at,

@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { FolderKanban, TrendingUp, Ticket, Search, Filter, List, LayoutGrid, Code } from 'lucide-react';
 import { Project, Opportunity, ServiceTicket } from '../../types';
-import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron } from '../../api';
+import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron, settings } from '../../api';
 import { useWebSocket } from '../../context/WebSocketContext';
 import ProjectCard from '../Project/ProjectCard';
 import OpportunityCard from '../Opportunity/OpportunityCard';
 import ServiceTicketCard from '../ServiceTicket/ServiceTicketCard';
+
+// Setting key for visible detail fields
+const PROJECT_DETAIL_VISIBLE_FIELDS_KEY = 'project_detail_visible_fields';
 
 type ViewType = 'projects' | 'opportunities' | 'service-tickets';
 
@@ -52,6 +55,24 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   const [ticketStatuses, setTicketStatuses] = useState<string[]>([]);
   const [priorities, setPriorities] = useState<string[]>([]);
   const [assignees, setAssignees] = useState<string[]>([]);
+
+  // Detail fields to display on project cards
+  const [visibleDetailFields, setVisibleDetailFields] = useState<string[]>([]);
+
+  // Fetch visible detail fields setting
+  useEffect(() => {
+    if (type === 'projects' && settings) {
+      settings.get(PROJECT_DETAIL_VISIBLE_FIELDS_KEY).then(value => {
+        if (value) {
+          try {
+            setVisibleDetailFields(JSON.parse(value));
+          } catch {
+            setVisibleDetailFields([]);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [type]);
 
   // Fetch data
   useEffect(() => {
@@ -423,6 +444,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
                 isPinned={isPinned('projects', project.id)}
                 onTogglePin={() => togglePin('projects', project.id)}
                 alwaysExpanded={viewMode === 'detailed'}
+                visibleDetailFields={visibleDetailFields}
               />
             ))}
             {type === 'opportunities' && filteredOpportunities.map((opportunity) => (

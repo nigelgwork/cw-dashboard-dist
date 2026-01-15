@@ -123,12 +123,12 @@ export async function parseAtomFeed(xmlContent: string): Promise<AtomEntry[]> {
 
 /**
  * Fetch and parse project detail for a single project
- * Returns the Status and other detail fields if available
+ * Returns ALL fields from the detail feed for storage
  */
 export async function fetchProjectDetail(
   detailFeedUrl: string,
   projectId: string
-): Promise<{ status?: string; endDate?: string; company?: string; name?: string } | null> {
+): Promise<{ allFields: Record<string, unknown>; status?: string } | null> {
   try {
     // Create the detail URL with the project ID
     const url = createDetailFeedUrl(detailFeedUrl, projectId);
@@ -143,33 +143,37 @@ export async function fetchProjectDetail(
       return null;
     }
 
-    // The detail report may have multiple collections (Tablix1, Tablix2, etc.)
-    // We need to find the one with the Status field
-    // Based on user's report, this is in the Overview section
+    // Merge all entries into a single object (in case multiple collections exist)
+    // Later entries override earlier ones if there are field conflicts
+    const allFields: Record<string, unknown> = {};
+    let foundStatus: string | undefined;
+
     for (const entry of entries) {
+      // Merge all fields from this entry
+      for (const [key, value] of Object.entries(entry)) {
+        if (value !== null && value !== undefined && value !== '') {
+          // Clean HTML entities from string values
+          allFields[key] = typeof value === 'string' ? cleanHtmlEntities(value) : value;
+        }
+      }
+
       // Look for Status field - common field names
-      const status = entry.Status || entry.status || entry.ProjectStatus || entry.Project_Status;
-      if (status) {
-        console.log(`[NativeSync] Found detail for project ${projectId}: Status="${status}"`);
-        return {
-          status: cleanHtmlEntities(status),
-          endDate: entry.EndDate || entry.End_Date || entry['End Date'],
-          company: entry.Company || entry.company || entry.CompanyName,
-          name: entry.Name || entry.name || entry.ProjectName,
-        };
+      if (!foundStatus) {
+        const status = entry.Status || entry.status || entry.ProjectStatus || entry.Project_Status;
+        if (status) {
+          foundStatus = cleanHtmlEntities(status);
+        }
       }
     }
 
-    // If no Status field found, log the first entry's fields for debugging
-    console.log(`[NativeSync] No Status field found in detail. Available fields: ${Object.keys(entries[0]).join(', ')}`);
+    console.log(`[NativeSync] Found ${Object.keys(allFields).length} fields for project ${projectId}`);
+    if (foundStatus) {
+      console.log(`[NativeSync] Status: "${foundStatus}"`);
+    }
 
-    // Try to extract from the first entry even if Status field is not named as expected
-    const firstEntry = entries[0];
     return {
-      status: undefined, // No status found
-      endDate: firstEntry.EndDate || firstEntry.End_Date || firstEntry['End Date'],
-      company: firstEntry.Company || firstEntry.company || firstEntry.CompanyName,
-      name: firstEntry.Name || firstEntry.name || firstEntry.ProjectName,
+      allFields,
+      status: foundStatus,
     };
   } catch (error) {
     console.error(`[NativeSync] Error fetching detail for project ${projectId}:`, error);
@@ -231,8 +235,8 @@ export async function syncProjects(
     let unchanged = 0;
 
     const insertStmt = db.prepare(`
-      INSERT INTO projects (external_id, client_name, project_name, budget, spent, hours_estimate, hours_remaining, status, is_active, notes, raw_data, updated_at)
-      VALUES (@external_id, @client_name, @project_name, @budget, @spent, @hours_estimate, @hours_remaining, @status, @is_active, @notes, @raw_data, datetime('now'))
+      INSERT INTO projects (external_id, client_name, project_name, budget, spent, hours_estimate, hours_remaining, status, is_active, notes, raw_data, detail_raw_data, updated_at)
+      VALUES (@external_id, @client_name, @project_name, @budget, @spent, @hours_estimate, @hours_remaining, @status, @is_active, @notes, @raw_data, @detail_raw_data, datetime('now'))
     `);
 
     const updateStmt = db.prepare(`
@@ -247,6 +251,7 @@ export async function syncProjects(
         is_active = @is_active,
         notes = @notes,
         raw_data = @raw_data,
+        detail_raw_data = @detail_raw_data,
         updated_at = datetime('now')
       WHERE external_id = @external_id
     `);
@@ -268,7 +273,10 @@ export async function syncProjects(
           try {
             const detail = await fetchProjectDetail(detailFeedUrl, mapped.external_id as string);
             if (detail) {
-              // Merge detail data into mapped record
+              // Store ALL detail fields as JSON
+              mapped.detail_raw_data = JSON.stringify(detail.allFields);
+
+              // Use status from detail to update main status field
               if (detail.status) {
                 mapped.status = detail.status;
                 // Re-evaluate isActive based on new status
@@ -277,7 +285,7 @@ export async function syncProjects(
                                    lowerStatus.includes('closed');
                 mapped.is_active = isInactive ? 0 : 1;
               }
-              console.log(`[NativeSync] Project ${mapped.external_id}: Status="${mapped.status}", isActive=${mapped.is_active}`);
+              console.log(`[NativeSync] Project ${mapped.external_id}: Status="${mapped.status}", isActive=${mapped.is_active}, detailFields=${Object.keys(detail.allFields).length}`);
             }
           } catch (detailError) {
             console.error(`[NativeSync] Failed to fetch detail for ${mapped.external_id}:`, detailError);

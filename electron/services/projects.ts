@@ -14,6 +14,7 @@ export interface Project {
   isActive: boolean;
   notes: string | null;
   rawData: string | null;
+  detailRawData: string | null;
   createdAt: string;
   updatedAt: string;
   // Computed fields
@@ -48,6 +49,7 @@ function transformRow(row: ProjectRow): Project {
     isActive: row.is_active === 1,
     notes: row.notes,
     rawData: row.raw_data,
+    detailRawData: row.detail_raw_data,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     // Computed fields
@@ -191,4 +193,40 @@ export function clearAll(): { deleted: number } {
   db.prepare('DELETE FROM projects').run();
   console.log(`[Projects] Cleared ${count} records`);
   return { deleted: count };
+}
+
+/**
+ * Get available detail fields from projects that have detail data
+ * Returns an array of field names found in the detail_raw_data JSON
+ */
+export function getAvailableDetailFields(): string[] {
+  const db = getDatabase();
+
+  // Find projects with detail_raw_data
+  const rows = db
+    .prepare('SELECT detail_raw_data FROM projects WHERE detail_raw_data IS NOT NULL LIMIT 10')
+    .all() as { detail_raw_data: string }[];
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  // Collect all unique field names across projects
+  const allFields = new Set<string>();
+
+  for (const row of rows) {
+    try {
+      const detailData = JSON.parse(row.detail_raw_data);
+      if (detailData && typeof detailData === 'object') {
+        for (const key of Object.keys(detailData)) {
+          allFields.add(key);
+        }
+      }
+    } catch {
+      // Skip invalid JSON
+    }
+  }
+
+  // Return sorted array of field names
+  return Array.from(allFields).sort();
 }

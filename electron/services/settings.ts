@@ -83,6 +83,7 @@ export const SettingKeys = {
   GITHUB_TOKEN: 'github_token',
   DATE_LOOKBACK_DAYS: 'date_lookback_days',
   ADAPTIVE_SYNC_ENABLED: 'adaptive_sync_enabled',
+  PROJECT_DETAIL_VISIBLE_FIELDS: 'project_detail_visible_fields',
 } as const;
 
 // Default values

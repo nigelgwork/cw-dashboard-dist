@@ -34,6 +34,10 @@ export function registerIpcHandlers(): void {
     return projectService.getStatuses();
   });
 
+  ipcMain.handle('projects:getAvailableDetailFields', async () => {
+    return projectService.getAvailableDetailFields();
+  });
+
   // ============================================
   // Opportunities
   // ============================================

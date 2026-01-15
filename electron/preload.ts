@@ -8,6 +8,7 @@ export interface ElectronAPI {
     getById: (id: number) => Promise<Project | null>;
     getByExternalId: (externalId: string) => Promise<Project | null>;
     clearAll: () => Promise<ClearDataResult>;
+    getAvailableDetailFields: () => Promise<string[]>;
   };
 
   // Opportunities
@@ -118,6 +119,8 @@ interface Project {
   status: string;
   isActive: boolean;
   notes: string | null;
+  rawData: string | null;
+  detailRawData: string | null;
   createdAt: string;
   updatedAt: string;
   budgetRemaining?: number;
@@ -267,6 +270,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getByExternalId: (externalId: string) => ipcRenderer.invoke('projects:getByExternalId', externalId),
     getStatuses: () => ipcRenderer.invoke('projects:getStatuses'),
     clearAll: () => ipcRenderer.invoke('projects:clearAll'),
+    getAvailableDetailFields: () => ipcRenderer.invoke('projects:getAvailableDetailFields'),
   },
 
   // Opportunities

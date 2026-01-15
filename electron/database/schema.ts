@@ -3,7 +3,7 @@
  * Equivalent to the PostgreSQL schema from the original backend
  */
 
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export const createTablesSQL = `
 -- Projects table
@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS projects (
     is_active INTEGER DEFAULT 1,
     notes TEXT,
     raw_data TEXT,
+    detail_raw_data TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
 );
@@ -163,6 +164,7 @@ export interface ProjectRow {
   is_active: number;
   notes: string | null;
   raw_data: string | null;
+  detail_raw_data: string | null;
   created_at: string;
   updated_at: string;
 }

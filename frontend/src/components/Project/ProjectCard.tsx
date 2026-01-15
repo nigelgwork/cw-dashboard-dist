@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Clock, DollarSign, Pin, ChevronDown, ChevronUp, Calendar, Hash } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Clock, DollarSign, Pin, ChevronDown, ChevronUp, Calendar, Hash, FileText } from 'lucide-react';
 import { Project } from '../../types';
 import {
   formatCurrency,
@@ -16,12 +16,31 @@ interface ProjectCardProps {
   isPinned?: boolean;
   onTogglePin?: () => void;
   alwaysExpanded?: boolean;
+  visibleDetailFields?: string[];
 }
 
-export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpanded = false }: ProjectCardProps) {
+export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpanded = false, visibleDetailFields = [] }: ProjectCardProps) {
   const [expanded, setExpanded] = useState(false);
   const budgetPercentUsed = project.budgetPercentUsed ?? 0;
   const isExpanded = alwaysExpanded || expanded;
+
+  // Parse detail data if available and fields are selected
+  const detailFields = useMemo(() => {
+    if (!project.detailRawData || visibleDetailFields.length === 0) {
+      return [];
+    }
+    try {
+      const data = JSON.parse(project.detailRawData);
+      return visibleDetailFields
+        .filter(field => data[field] !== undefined && data[field] !== null && data[field] !== '')
+        .map(field => ({
+          name: field,
+          value: String(data[field]),
+        }));
+    } catch {
+      return [];
+    }
+  }, [project.detailRawData, visibleDetailFields]);
 
   const handlePinClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -123,6 +142,24 @@ export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpa
             <div className="text-xs text-gray-400">
               <span className="text-gray-500">Notes: </span>
               {formatNotes(project.notes)}
+            </div>
+          )}
+
+          {/* Extended Detail Fields */}
+          {detailFields.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-board-border/50">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <FileText size={11} className="text-purple-400" />
+                <span className="text-[10px] text-purple-400 font-medium uppercase tracking-wide">Extended Details</span>
+              </div>
+              <div className="space-y-1">
+                {detailFields.map(field => (
+                  <div key={field.name} className="flex gap-2 text-xs">
+                    <span className="text-gray-500 flex-shrink-0">{field.name}:</span>
+                    <span className="text-gray-400 break-words">{field.value}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

@@ -175,6 +175,16 @@ async function runMigration(version: number): Promise<void> {
         console.log('Error updating atom_feeds table:', e);
       }
       break;
+    case 5:
+      // Add detail_raw_data column for storing full detail feed data
+      console.log('Adding detail_raw_data column to projects table');
+      try {
+        db.exec('ALTER TABLE projects ADD COLUMN detail_raw_data TEXT');
+      } catch (e) {
+        // Column might already exist
+        console.log('detail_raw_data column may already exist:', e);
+      }
+      break;
     default:
       console.log(`No migration needed for version ${version}`);
   }

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Pin, FolderKanban, TrendingUp, Ticket } from 'lucide-react';
 import { Project, Opportunity, ServiceTicket } from '../../types';
-import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron } from '../../api';
+import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron, settings } from '../../api';
 import { useWebSocket } from '../../context/WebSocketContext';
 import ProjectCard from '../Project/ProjectCard';
 import OpportunityCard from '../Opportunity/OpportunityCard';
 import ServiceTicketCard from '../ServiceTicket/ServiceTicketCard';
+
+// Setting key for visible detail fields
+const PROJECT_DETAIL_VISIBLE_FIELDS_KEY = 'project_detail_visible_fields';
 
 type ItemType = 'projects' | 'opportunities' | 'service-tickets';
 
@@ -22,6 +25,24 @@ export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinned
   const [serviceTickets, setServiceTickets] = useState<ServiceTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const { lastMessage } = useWebSocket();
+
+  // Detail fields to display on project cards
+  const [visibleDetailFields, setVisibleDetailFields] = useState<string[]>([]);
+
+  // Fetch visible detail fields setting
+  useEffect(() => {
+    if (settings) {
+      settings.get(PROJECT_DETAIL_VISIBLE_FIELDS_KEY).then(value => {
+        if (value) {
+          try {
+            setVisibleDetailFields(JSON.parse(value));
+          } catch {
+            setVisibleDetailFields([]);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, []);
 
   // Fetch pinned items
   useEffect(() => {
@@ -120,6 +141,7 @@ export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinned
                   project={project}
                   isPinned={true}
                   onTogglePin={() => togglePin('projects', project.id)}
+                  visibleDetailFields={visibleDetailFields}
                 />
               ))}
             </div>
