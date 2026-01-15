@@ -355,14 +355,30 @@ function detectFeedType(url: string, title: string = ''): 'PROJECTS' | 'OPPORTUN
   const combined = lowerUrl + ' ' + lowerTitle;
 
   // Check for project detail feeds first (most specific)
-  // These have a ProjectNo or Project_ID parameter and often contain "detail" or "summary detailed"
-  const hasProjectIdParam = lowerUrl.includes('projectno=') || lowerUrl.includes('project_id=') ||
-                            lowerUrl.includes('projectid=');
-  const isDetailReport = combined.includes('detail') || combined.includes('summary detailed');
+  // PROJECT_DETAIL feeds have a SINGLE ProjectNo parameter (used as a template)
+  // Regular PROJECTS feeds may have MULTIPLE ProjectID parameters (data selection, not a template)
 
-  if (hasProjectIdParam && combined.includes('project')) {
-    console.log('[AtomSvcParser] Detected PROJECT_DETAIL feed (has ProjectNo/ProjectID parameter)');
+  // Count occurrences of project ID parameters
+  const projectNoCount = (lowerUrl.match(/projectno=/g) || []).length;
+  const projectIdCount = (lowerUrl.match(/projectid=/g) || []).length;
+  const pmProjectRecIdCount = (lowerUrl.match(/pm_project_recid=/g) || []).length;
+
+  // A detail feed has exactly 1 ProjectNo (template) and possibly 1 PM_Project_RecID
+  // A summary feed has many ProjectID values (data selection from "Select All")
+  const isSingleProjectTemplate = projectNoCount === 1 && projectIdCount === 0;
+  const hasMultipleProjectIds = projectIdCount > 1;
+
+  console.log(`[AtomSvcParser] Project ID detection: ProjectNo=${projectNoCount}, ProjectID=${projectIdCount}, PM_Project_RecID=${pmProjectRecIdCount}`);
+
+  if (isSingleProjectTemplate && combined.includes('project')) {
+    console.log('[AtomSvcParser] Detected PROJECT_DETAIL feed (single ProjectNo template parameter)');
     return 'PROJECT_DETAIL';
+  }
+
+  // If it has multiple ProjectID values, it's a summary/list feed, not a detail feed
+  if (hasMultipleProjectIds) {
+    console.log('[AtomSvcParser] Detected PROJECTS feed (multiple ProjectID data parameters)');
+    return 'PROJECTS';
   }
 
   // Check for service tickets patterns
