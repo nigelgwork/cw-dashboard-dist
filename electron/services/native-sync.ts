@@ -618,18 +618,24 @@ function mapOpportunityEntry(entry: AtomEntry): Record<string, unknown> {
  * Field mappings based on SSRS Service Ticket report
  */
 function mapServiceTicketEntry(entry: AtomEntry): Record<string, unknown> {
-  // Try common field names for service tickets
-  const externalId = entry.ID || entry.TicketID || entry.Ticket_ID || entry.TicketNbr || entry.SR_Number || entry.Id || '';
-  const summary = cleanHtmlEntities(entry.Summary || entry.Description || entry.Title || entry.Subject || '');
-  const status = entry.Status || entry.TicketStatus || entry.Ticket_Status || entry.StatusName || '';
-  const priority = entry.Priority || entry.PriorityName || entry.Priority_Name || '';
-  const assignedTo = cleanHtmlEntities(entry.AssignedTo || entry.Assigned_To || entry.Owner || entry.Resource || '');
-  const companyName = cleanHtmlEntities(entry.Company || entry.CompanyName || entry.Company_Name || entry.Client || '');
-  const boardName = entry.Board || entry.BoardName || entry.Board_Name || entry.ServiceBoard || '';
+  // Log all available fields for debugging (first entry only shown in syncServiceTickets)
 
-  // Date fields
-  const createdDate = entry.CreatedDate || entry.Created_Date || entry.DateEntered || entry.OpenDate || null;
-  const lastUpdated = entry.LastUpdated || entry.Last_Updated || entry.DateUpdated || entry.ModifiedDate || null;
+  // Try common field names for service tickets - matching PowerShell script field order
+  const externalId = entry.TicketNbr || entry.Ticket_Number || entry.SR_RecID || entry.ID || entry.TicketID || entry.Ticket_ID || entry.Id || '';
+  const summary = cleanHtmlEntities(entry.Summary || entry.Description || entry.Title || entry.Subject || '');
+  // status_description is the field name from SSRS (lowercase)
+  const status = entry.status_description || entry.Status_Description || entry.Status || entry.TicketStatus || entry.Ticket_Status || entry.StatusName || '';
+  // Urgency is the priority field from SSRS
+  const priority = entry.Urgency || entry.Priority_Description || entry.Priority || entry.PriorityName || entry.Priority_Name || '';
+  // team_name is the assigned to field from SSRS
+  const assignedTo = cleanHtmlEntities(entry.team_name || entry.Assigned_To || entry.AssignedTo || entry.Owner || entry.Resource || '');
+  // Company_Name is the field from SSRS
+  const companyName = cleanHtmlEntities(entry.Company_Name || entry.Company || entry.CompanyName || entry.Client || '');
+  const boardName = entry.Board_Name || entry.Board || entry.BoardName || entry.Board_Name || entry.ServiceBoard || '';
+
+  // Date fields - date_entered is the field from SSRS (lowercase)
+  const createdDate = entry.date_entered || entry.Date_Entered || entry.Created_Date || entry.CreatedDate || entry.DateEntered || entry.OpenDate || null;
+  const lastUpdated = entry.last_updated || entry.Last_Updated || entry.LastUpdated || entry.DateUpdated || entry.ModifiedDate || null;
   const dueDate = entry.DueDate || entry.Due_Date || entry.RequiredDate || entry.Deadline || null;
 
   // Hours/financial fields
