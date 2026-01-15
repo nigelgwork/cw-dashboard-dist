@@ -102,9 +102,17 @@ export async function parseAtomSvcFile(content: string): Promise<ParsedAtomFeed[
               const feedType = detectFeedType(href, workspaceTitle || collectionTitle);
               console.log(`[AtomSvcParser] Detected feed type: ${feedType}`);
 
+              // Decode HTML entities first, then clean the URL
+              const decodedUrl = decodeAtomUrl(href);
+              const { cleanedUrl, removedParams } = cleanSsrsUrl(decodedUrl);
+
+              if (removedParams.length > 0) {
+                console.log(`[AtomSvcParser] Cleaned URL - removed ${removedParams.length} data parameters (${removedParams.join(', ')})`);
+              }
+
               feeds.push({
                 name: feedName,
-                feedUrl: decodeAtomUrl(href),
+                feedUrl: cleanedUrl,
                 feedType,
               });
             }
@@ -142,6 +150,154 @@ function decodeAtomUrl(url: string): string {
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
+}
+
+/**
+ * Parameters that represent individual record IDs - these should be REMOVED
+ * because they are "data" from the report, not filters.
+ * When syncing, we want ALL records matching the filters, not specific IDs.
+ */
+const DATA_PARAMETERS = [
+  'ProjectID',
+  'Project_ID',
+  'TicketNbr',
+  'Ticket_Number',
+  'TicketID',
+  'Ticket_ID',
+  'SR_RecID',
+  'OpportunityID',
+  'Opportunity_ID',
+  'OppID',
+  'RecID',
+  'ID',
+];
+
+/**
+ * Parameters that should be kept as filters
+ */
+const FILTER_PARAMETERS = [
+  // Common filters
+  'Locations',
+  'Location',
+  // Project filters
+  'ProjectStatuses',
+  'ProjectStatus',
+  'ProjectManagers',
+  'ProjectManager',
+  'PM',
+  // Opportunity filters
+  'Sales_Rep',
+  'SalesRep',
+  'Stage',
+  'Stages',
+  // Service ticket filters
+  'Status',
+  'Statuses',
+  'Priority',
+  'Priorities',
+  'Board',
+  'Boards',
+  'AssignedTo',
+  'Assigned_To',
+  'Company',
+  'Companies',
+  // Date filters - keep but may need dynamic handling
+  'ThruDate',
+  'FromDate',
+  'StartDate',
+  'EndDate',
+  'DateFrom',
+  'DateTo',
+];
+
+/**
+ * Clean an SSRS ATOM URL by removing data parameters and keeping only filters
+ *
+ * SSRS ATOMSVC files often include ALL current parameter values, including
+ * specific record IDs (like ProjectID=123). These are "data" not "filters".
+ *
+ * For sync to work properly, we need to:
+ * 1. Remove data parameters (specific record IDs)
+ * 2. Keep filter parameters (Locations, Status, etc.)
+ * 3. Keep SSRS rendering parameters (rs:Command, rs:Format, rc:ItemPath)
+ */
+export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: string[]; keptParams: string[] } {
+  const removedParams: string[] = [];
+  const keptParams: string[] = [];
+
+  try {
+    // Parse the URL - SSRS URLs have a special format where the report path is in the query string
+    // Example: http://server/ReportServer?%2FFolder%2FReport&Param1=value&rs:Format=ATOM
+    const urlObj = new URL(url);
+    const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
+
+    // Parse query string manually since SSRS uses non-standard format
+    // The first "parameter" is actually the report path (starts with %2F or /)
+    const queryString = urlObj.search.substring(1); // Remove leading ?
+    const params: Array<{ key: string; value: string }> = [];
+    let reportPath = '';
+
+    // Split by & but be careful with URL encoding
+    const parts = queryString.split('&');
+
+    for (const part of parts) {
+      if (!part) continue;
+
+      const eqIndex = part.indexOf('=');
+      if (eqIndex === -1) {
+        // This is likely the report path (no = sign)
+        if (part.startsWith('%2F') || part.startsWith('/')) {
+          reportPath = part;
+        }
+        continue;
+      }
+
+      const key = part.substring(0, eqIndex);
+      const value = part.substring(eqIndex + 1);
+
+      // Check if this is an SSRS command parameter (keep these)
+      if (key.startsWith('rs:') || key.startsWith('rs%3A') ||
+          key.startsWith('rc:') || key.startsWith('rc%3A')) {
+        params.push({ key, value });
+        keptParams.push(key);
+        continue;
+      }
+
+      // Check if this is a data parameter (remove these)
+      const isDataParam = DATA_PARAMETERS.some(dp =>
+        key.toLowerCase() === dp.toLowerCase()
+      );
+
+      if (isDataParam) {
+        removedParams.push(key);
+        continue;
+      }
+
+      // Keep all other parameters (filters)
+      params.push({ key, value });
+      if (!keptParams.includes(key)) {
+        keptParams.push(key);
+      }
+    }
+
+    // Reconstruct the URL
+    let cleanedUrl = baseUrl + '?' + reportPath;
+
+    for (const param of params) {
+      cleanedUrl += '&' + param.key + '=' + param.value;
+    }
+
+    console.log(`[AtomSvcParser] Cleaned URL: removed ${removedParams.length} data params, kept ${keptParams.length} filter params`);
+    if (removedParams.length > 0) {
+      console.log(`[AtomSvcParser] Removed parameters: ${[...new Set(removedParams)].join(', ')}`);
+    }
+
+    return { cleanedUrl, removedParams: [...new Set(removedParams)], keptParams };
+  } catch (error) {
+    console.error('[AtomSvcParser] Error cleaning URL:', error);
+    // Return original URL if cleaning fails
+    return { cleanedUrl: url, removedParams: [], keptParams: [] };
+  }
 }
 
 /**
