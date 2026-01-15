@@ -125,48 +125,87 @@ export async function parseAtomFeed(xmlContent: string): Promise<AtomEntry[]> {
  * Fetch and parse project detail for a single project
  * Returns ALL fields from the detail feed for storage
  */
+// Tablixes to fetch for project detail data (in priority order)
+// Each tablix contains different data sections from the SSRS report
+const DETAIL_TABLIXES = [
+  'Tablix1',   // Project header: Company, Name, Status, End_Date
+  'Tablix2',   // Financial summary: Quoted, Estimated_Cost, Actual_Cost, Billable, Invoiced
+  'Tablix15',  // Hours summary: Hours_Budget, Hours_Actual, Hours_Remaining, %Used
+  'Tablix16',  // Hours by role: Work_Role, Time
+  'Tablix8',   // Time entries (first row has totals): Total hours, Total labour cost
+  'Tablix10',  // H/W + Expenses (first row has totals): Total cost
+];
+
 export async function fetchProjectDetail(
   detailFeedUrl: string,
   projectId: string
 ): Promise<{ allFields: Record<string, unknown>; status?: string } | null> {
   try {
-    // Create the detail URL with the project ID
-    const url = createDetailFeedUrl(detailFeedUrl, projectId);
-    console.log(`[NativeSync] Fetching detail for project ${projectId}`);
+    console.log(`[NativeSync] Fetching detail for project ${projectId} from ${DETAIL_TABLIXES.length} tablixes`);
 
-    // Fetch the detail feed
-    const xmlContent = await fetchAtomFeed(url);
-    const entries = await parseAtomFeed(xmlContent);
+    const allFields: Record<string, unknown> = {};
+    let foundStatus: string | undefined;
+    let tablixesWithData = 0;
 
-    if (entries.length === 0) {
-      console.log(`[NativeSync] No detail entries found for project ${projectId}`);
+    // Fetch each tablix and merge the data
+    for (const tablix of DETAIL_TABLIXES) {
+      try {
+        // Create URL for this specific tablix
+        const url = createDetailFeedUrlWithTablix(detailFeedUrl, projectId, tablix);
+
+        // Fetch the tablix
+        const xmlContent = await fetchAtomFeed(url);
+        const entries = await parseAtomFeed(xmlContent);
+
+        if (entries.length > 0) {
+          tablixesWithData++;
+          console.log(`[NativeSync] ${tablix}: ${entries.length} entries`);
+
+          // For tablixes with multiple entries (like time entries), only take the first row
+          // which typically contains totals. Store the count for reference.
+          const entry = entries[0];
+
+          // Prefix fields with tablix name to avoid conflicts (except common fields)
+          for (const [key, value] of Object.entries(entry)) {
+            if (value !== null && value !== undefined && value !== '') {
+              const cleanValue = typeof value === 'string' ? cleanHtmlEntities(value) : value;
+
+              // Store both prefixed and unprefixed for common fields
+              if (['Company', 'Name', 'Status', 'End_Date', 'Quoted', 'Estimated_Cost', 'Actual_Cost',
+                   'Billable', 'Invoiced', 'WIP21', 'CIA_Remaining', 'Hours_Budget', 'Hours_Actual',
+                   'Work_Role', 'ReportTitle'].includes(key)) {
+                allFields[key] = cleanValue;
+              }
+              // Always store with tablix prefix for traceability
+              allFields[`${tablix}_${key}`] = cleanValue;
+            }
+          }
+
+          // Store entry count for multi-row tablixes
+          if (entries.length > 1) {
+            allFields[`${tablix}_RowCount`] = entries.length;
+          }
+
+          // Look for Status field
+          if (!foundStatus) {
+            const status = entry.Status || entry.status || entry.ProjectStatus || entry.Project_Status;
+            if (status) {
+              foundStatus = cleanHtmlEntities(status);
+            }
+          }
+        }
+      } catch (tablixError) {
+        // Some tablixes may not exist in all reports - that's OK
+        console.log(`[NativeSync] ${tablix}: skipped (error or empty)`);
+      }
+    }
+
+    if (tablixesWithData === 0) {
+      console.log(`[NativeSync] No detail data found for project ${projectId}`);
       return null;
     }
 
-    // Merge all entries into a single object (in case multiple collections exist)
-    // Later entries override earlier ones if there are field conflicts
-    const allFields: Record<string, unknown> = {};
-    let foundStatus: string | undefined;
-
-    for (const entry of entries) {
-      // Merge all fields from this entry
-      for (const [key, value] of Object.entries(entry)) {
-        if (value !== null && value !== undefined && value !== '') {
-          // Clean HTML entities from string values
-          allFields[key] = typeof value === 'string' ? cleanHtmlEntities(value) : value;
-        }
-      }
-
-      // Look for Status field - common field names
-      if (!foundStatus) {
-        const status = entry.Status || entry.status || entry.ProjectStatus || entry.Project_Status;
-        if (status) {
-          foundStatus = cleanHtmlEntities(status);
-        }
-      }
-    }
-
-    console.log(`[NativeSync] Found ${Object.keys(allFields).length} fields for project ${projectId}`);
+    console.log(`[NativeSync] Found ${Object.keys(allFields).length} fields from ${tablixesWithData} tablixes for project ${projectId}`);
     if (foundStatus) {
       console.log(`[NativeSync] Status: "${foundStatus}"`);
     }
@@ -179,6 +218,21 @@ export async function fetchProjectDetail(
     console.error(`[NativeSync] Error fetching detail for project ${projectId}:`, error);
     return null;
   }
+}
+
+/**
+ * Create detail feed URL with a specific tablix
+ */
+function createDetailFeedUrlWithTablix(detailFeedUrl: string, projectId: string, tablix: string): string {
+  // First create the base URL with project ID substituted
+  let url = createDetailFeedUrl(detailFeedUrl, projectId);
+
+  // Now replace the ItemPath with our specific tablix
+  // The createDetailFeedUrl function sets ItemPath=Tablix1, we need to change it
+  url = url.replace(/rc%3AItemPath=[^&]+/i, `rc%3AItemPath=${tablix}`);
+  url = url.replace(/rc:ItemPath=[^&]+/i, `rc:ItemPath=${tablix}`);
+
+  return url;
 }
 
 /**
