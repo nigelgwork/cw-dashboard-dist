@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FolderKanban, TrendingUp, Ticket, Search, Filter, List, LayoutGrid } from 'lucide-react';
+import { FolderKanban, TrendingUp, Ticket, Search, Filter, List, LayoutGrid, Code } from 'lucide-react';
 import { Project, Opportunity, ServiceTicket } from '../../types';
 import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron } from '../../api';
 import { useWebSocket } from '../../context/WebSocketContext';
@@ -31,8 +31,8 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   const [showFilters, setShowFilters] = useState(false);
   const { lastMessage } = useWebSocket();
 
-  // View mode toggle
-  const [detailedView, setDetailedView] = useState(true);
+  // View mode toggle: 'detailed' | 'compact' | 'raw'
+  const [viewMode, setViewMode] = useState<'detailed' | 'compact' | 'raw'>('detailed');
 
   // Project-specific filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -226,18 +226,25 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
         {/* View mode toggle */}
         <div className="flex items-center bg-board-bg border border-board-border rounded-lg overflow-hidden">
           <button
-            onClick={() => setDetailedView(true)}
-            className={`p-2 transition-colors ${detailedView ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+            onClick={() => setViewMode('detailed')}
+            className={`p-2 transition-colors ${viewMode === 'detailed' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             title="Detailed view"
           >
             <LayoutGrid size={18} />
           </button>
           <button
-            onClick={() => setDetailedView(false)}
-            className={`p-2 transition-colors ${!detailedView ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+            onClick={() => setViewMode('compact')}
+            className={`p-2 transition-colors ${viewMode === 'compact' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
             title="Compact view"
           >
             <List size={18} />
+          </button>
+          <button
+            onClick={() => setViewMode('raw')}
+            className={`p-2 transition-colors ${viewMode === 'raw' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
+            title="Raw data view"
+          >
+            <Code size={18} />
           </button>
         </div>
 
@@ -369,7 +376,45 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
           <div className="text-center text-gray-500 py-8">
             {hasActiveFilters ? `No matching ${config.label.toLowerCase()}` : `No ${config.label.toLowerCase()}`}
           </div>
+        ) : viewMode === 'raw' ? (
+          /* Raw data view - shows JSON for each item */
+          <div className="space-y-2">
+            {type === 'projects' && filteredProjects.map((project) => (
+              <div key={project.id} className="bg-board-bg border border-board-border rounded p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-white">{project.clientName} - {project.projectName}</span>
+                  <span className="text-xs text-gray-500">ID: {project.externalId}</span>
+                </div>
+                <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
+                  {project.rawData ? JSON.stringify(JSON.parse(project.rawData), null, 2) : 'No raw data available - sync again to populate'}
+                </pre>
+              </div>
+            ))}
+            {type === 'opportunities' && filteredOpportunities.map((opportunity) => (
+              <div key={opportunity.id} className="bg-board-bg border border-board-border rounded p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-white">{opportunity.companyName} - {opportunity.opportunityName}</span>
+                  <span className="text-xs text-gray-500">ID: {opportunity.externalId}</span>
+                </div>
+                <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
+                  {opportunity.rawData ? JSON.stringify(JSON.parse(opportunity.rawData), null, 2) : 'No raw data available - sync again to populate'}
+                </pre>
+              </div>
+            ))}
+            {type === 'service-tickets' && filteredServiceTickets.map((ticket) => (
+              <div key={ticket.id} className="bg-board-bg border border-board-border rounded p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-white">{ticket.companyName} - {ticket.summary}</span>
+                  <span className="text-xs text-gray-500">ID: {ticket.externalId}</span>
+                </div>
+                <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
+                  {ticket.rawData ? JSON.stringify(JSON.parse(ticket.rawData), null, 2) : 'No raw data available - sync again to populate'}
+                </pre>
+              </div>
+            ))}
+          </div>
         ) : (
+          /* Normal card view */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
             {type === 'projects' && filteredProjects.map((project) => (
               <ProjectCard
@@ -377,7 +422,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
                 project={project}
                 isPinned={isPinned('projects', project.id)}
                 onTogglePin={() => togglePin('projects', project.id)}
-                alwaysExpanded={detailedView}
+                alwaysExpanded={viewMode === 'detailed'}
               />
             ))}
             {type === 'opportunities' && filteredOpportunities.map((opportunity) => (
@@ -386,7 +431,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
                 opportunity={opportunity}
                 isPinned={isPinned('opportunities', opportunity.id)}
                 onTogglePin={() => togglePin('opportunities', opportunity.id)}
-                alwaysExpanded={detailedView}
+                alwaysExpanded={viewMode === 'detailed'}
               />
             ))}
             {type === 'service-tickets' && filteredServiceTickets.map((ticket) => (
@@ -395,7 +440,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
                 ticket={ticket}
                 isPinned={isPinned('service-tickets', ticket.id)}
                 onTogglePin={() => togglePin('service-tickets', ticket.id)}
-                alwaysExpanded={detailedView}
+                alwaysExpanded={viewMode === 'detailed'}
               />
             ))}
           </div>

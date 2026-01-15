@@ -17,6 +17,7 @@ export interface ServiceTicket {
   hoursRemaining?: number;
   budget?: number;
   notes?: string;
+  rawData?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,6 +39,7 @@ export interface ServiceTicketAPI {
   hours_remaining?: number;
   budget?: number;
   notes?: string;
+  raw_data?: string;
   created_at: string;
   updated_at: string;
 }
@@ -60,6 +62,7 @@ export function transformServiceTicket(api: ServiceTicketAPI): ServiceTicket {
     hoursRemaining: api.hours_remaining,
     budget: api.budget,
     notes: api.notes,
+    rawData: api.raw_data,
     createdAt: api.created_at,
     updatedAt: api.updated_at,
   };
@@ -114,6 +117,7 @@ export interface Project {
   status: string;
   isActive: boolean;
   notes?: string;
+  rawData?: string;
   budgetRemaining?: number;
   budgetPercentUsed?: number;
   createdAt: string;
@@ -131,7 +135,7 @@ export interface Opportunity {
   closeDate?: string;
   probability?: number;
   notes?: string;
-  rawData?: Record<string, unknown>;
+  rawData?: string;
   weightedValue?: number;
   createdAt: string;
   updatedAt: string;
@@ -156,6 +160,7 @@ export interface ProjectAPI {
   status: string;
   is_active: boolean;
   notes?: string;
+  raw_data?: string;
   budget_remaining?: number;
   budget_percent_used?: number;
   created_at: string;
@@ -173,7 +178,7 @@ export interface OpportunityAPI {
   close_date?: string;
   probability?: number;
   notes?: string;
-  raw_data?: Record<string, unknown>;
+  raw_data?: string;
   weighted_value?: number;
   created_at: string;
   updated_at: string;
@@ -193,6 +198,7 @@ export function transformProject(api: ProjectAPI): Project {
     status: api.status,
     isActive: api.is_active,
     notes: api.notes,
+    rawData: api.raw_data,
     budgetRemaining: api.budget_remaining,
     budgetPercentUsed: api.budget_percent_used,
     createdAt: api.created_at,

@@ -90,16 +90,23 @@ async function runMigrations(): Promise<void> {
  */
 async function runMigration(version: number): Promise<void> {
   console.log(`Running migration for version ${version}`);
+  if (!db) return;
 
   // Add migration logic here as needed
   switch (version) {
     case 1:
       // Initial schema - already created by createTablesSQL
       break;
-    // Add future migrations here
-    // case 2:
-    //   db.exec('ALTER TABLE ...');
-    //   break;
+    case 2:
+      // Add raw_data column to projects table
+      console.log('Adding raw_data column to projects table');
+      try {
+        db.exec('ALTER TABLE projects ADD COLUMN raw_data TEXT');
+      } catch (e) {
+        // Column might already exist
+        console.log('raw_data column may already exist:', e);
+      }
+      break;
     default:
       console.log(`No migration needed for version ${version}`);
   }

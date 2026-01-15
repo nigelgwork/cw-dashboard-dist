@@ -158,8 +158,8 @@ export async function syncProjects(
     let unchanged = 0;
 
     const insertStmt = db.prepare(`
-      INSERT INTO projects (external_id, client_name, project_name, budget, spent, hours_estimate, hours_remaining, status, is_active, notes, updated_at)
-      VALUES (@external_id, @client_name, @project_name, @budget, @spent, @hours_estimate, @hours_remaining, @status, @is_active, @notes, datetime('now'))
+      INSERT INTO projects (external_id, client_name, project_name, budget, spent, hours_estimate, hours_remaining, status, is_active, notes, raw_data, updated_at)
+      VALUES (@external_id, @client_name, @project_name, @budget, @spent, @hours_estimate, @hours_remaining, @status, @is_active, @notes, @raw_data, datetime('now'))
     `);
 
     const updateStmt = db.prepare(`
@@ -173,6 +173,7 @@ export async function syncProjects(
         status = @status,
         is_active = @is_active,
         notes = @notes,
+        raw_data = @raw_data,
         updated_at = datetime('now')
       WHERE external_id = @external_id
     `);
@@ -614,6 +615,9 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
   const pctValue = Math.round((parseNumber(pctComplete) || 0) * 100 * 10) / 10;
   const notes = `PM: ${projectManager} | WIP: ${wip} | % Complete: ${pctValue}%`;
 
+  // Store raw data for debugging
+  const rawData = JSON.stringify(entry);
+
   return {
     external_id: externalId,
     client_name: clientName || null,
@@ -625,6 +629,7 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
     status: status || 'Unknown',
     is_active: isActive ? 1 : 0,
     notes,
+    raw_data: rawData,
   };
 }
 

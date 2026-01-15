@@ -13,6 +13,7 @@ export interface Project {
   status: string;
   isActive: boolean;
   notes: string | null;
+  rawData: string | null;
   createdAt: string;
   updatedAt: string;
   // Computed fields
@@ -46,6 +47,7 @@ function transformRow(row: ProjectRow): Project {
     status: row.status,
     isActive: row.is_active === 1,
     notes: row.notes,
+    rawData: row.raw_data,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     // Computed fields
