@@ -254,3 +254,14 @@ export function getCount(): number {
   const row = db.prepare('SELECT COUNT(*) as count FROM service_tickets').get() as { count: number };
   return row.count;
 }
+
+/**
+ * Clear all service tickets from the database
+ */
+export function clearAll(): { deleted: number } {
+  const db = getDatabase();
+  const count = getCount();
+  db.prepare('DELETE FROM service_tickets').run();
+  console.log(`[ServiceTickets] Cleared ${count} records`);
+  return { deleted: count };
+}

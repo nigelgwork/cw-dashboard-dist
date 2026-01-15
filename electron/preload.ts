@@ -7,6 +7,7 @@ export interface ElectronAPI {
     getAll: (options?: ProjectQueryOptions) => Promise<Project[]>;
     getById: (id: number) => Promise<Project | null>;
     getByExternalId: (externalId: string) => Promise<Project | null>;
+    clearAll: () => Promise<ClearDataResult>;
   };
 
   // Opportunities
@@ -16,6 +17,7 @@ export interface ElectronAPI {
     getByExternalId: (externalId: string) => Promise<Opportunity | null>;
     getStages: () => Promise<string[]>;
     getSalesReps: () => Promise<string[]>;
+    clearAll: () => Promise<ClearDataResult>;
   };
 
   // Service Tickets
@@ -28,6 +30,7 @@ export interface ElectronAPI {
     getAssignees: () => Promise<string[]>;
     getCompanies: () => Promise<string[]>;
     getBoards: () => Promise<string[]>;
+    clearAll: () => Promise<ClearDataResult>;
   };
 
   // Sync
@@ -202,6 +205,10 @@ interface ClearHistoryResult {
   deletedChanges: number;
 }
 
+interface ClearDataResult {
+  deleted: number;
+}
+
 interface AtomFeed {
   id: number;
   name: string;
@@ -253,6 +260,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAll: (options?: ProjectQueryOptions) => ipcRenderer.invoke('projects:getAll', options),
     getById: (id: number) => ipcRenderer.invoke('projects:getById', id),
     getByExternalId: (externalId: string) => ipcRenderer.invoke('projects:getByExternalId', externalId),
+    clearAll: () => ipcRenderer.invoke('projects:clearAll'),
   },
 
   // Opportunities
@@ -262,6 +270,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getByExternalId: (externalId: string) => ipcRenderer.invoke('opportunities:getByExternalId', externalId),
     getStages: () => ipcRenderer.invoke('opportunities:getStages'),
     getSalesReps: () => ipcRenderer.invoke('opportunities:getSalesReps'),
+    clearAll: () => ipcRenderer.invoke('opportunities:clearAll'),
   },
 
   // Service Tickets
@@ -274,6 +283,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAssignees: () => ipcRenderer.invoke('serviceTickets:getAssignees'),
     getCompanies: () => ipcRenderer.invoke('serviceTickets:getCompanies'),
     getBoards: () => ipcRenderer.invoke('serviceTickets:getBoards'),
+    clearAll: () => ipcRenderer.invoke('serviceTickets:clearAll'),
   },
 
   // Sync

@@ -185,3 +185,14 @@ export function getCount(): number {
   const row = db.prepare('SELECT COUNT(*) as count FROM opportunities').get() as { count: number };
   return row.count;
 }
+
+/**
+ * Clear all opportunities from the database
+ */
+export function clearAll(): { deleted: number } {
+  const db = getDatabase();
+  const count = getCount();
+  db.prepare('DELETE FROM opportunities').run();
+  console.log(`[Opportunities] Cleared ${count} records`);
+  return { deleted: count };
+}

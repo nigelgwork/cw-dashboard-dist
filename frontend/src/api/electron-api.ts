@@ -30,6 +30,10 @@ function getElectronAPI(): any {
 // Projects API
 // ============================================
 
+export interface ClearDataResult {
+  deleted: number;
+}
+
 export const electronProjectsApi = {
   getAll: async (filters: ProjectsFilter = {}): Promise<Project[]> => {
     const api = getElectronAPI();
@@ -72,6 +76,11 @@ export const electronProjectsApi = {
     const project = await api.projects.getByExternalId(externalId);
     if (!project) throw new Error(`Project with external ID ${externalId} not found`);
     return project;
+  },
+
+  clearAll: async (): Promise<ClearDataResult> => {
+    const api = getElectronAPI();
+    return api.projects.clearAll();
   },
 };
 
@@ -130,6 +139,11 @@ export const electronOpportunitiesApi = {
   getSalesReps: async (): Promise<string[]> => {
     const api = getElectronAPI();
     return api.opportunities.getSalesReps();
+  },
+
+  clearAll: async (): Promise<ClearDataResult> => {
+    const api = getElectronAPI();
+    return api.opportunities.clearAll();
   },
 };
 
@@ -209,6 +223,11 @@ export const electronServiceTicketsApi = {
   getBoards: async (): Promise<string[]> => {
     const api = getElectronAPI();
     return api.serviceTickets.getBoards();
+  },
+
+  clearAll: async (): Promise<ClearDataResult> => {
+    const api = getElectronAPI();
+    return api.serviceTickets.clearAll();
   },
 };
 

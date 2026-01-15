@@ -8,12 +8,14 @@ import {
   Loader2,
   AlertCircle,
   Info,
+  Database,
+  Trash2,
 } from 'lucide-react';
 import AtomFeedManager from './AtomFeedManager';
-import { isElectron, electronUpdatesApi, electronSettingsApi } from '../../api/electron-api';
+import { isElectron, electronUpdatesApi, electronSettingsApi, electronProjectsApi, electronOpportunitiesApi, electronServiceTicketsApi } from '../../api/electron-api';
 import { useToast } from '../../context/ToastContext';
 
-type SettingsTab = 'feeds' | 'sync' | 'updates' | 'about';
+type SettingsTab = 'feeds' | 'sync' | 'data' | 'updates' | 'about';
 
 // Strip HTML tags and convert to readable text
 function stripHtml(html: string): string {
@@ -60,6 +62,11 @@ export default function SettingsPanel() {
   const [syncInterval, setSyncInterval] = useState<string>('60');
   const [autoSync, setAutoSync] = useState<boolean>(true);
   const [savingSettings, setSavingSettings] = useState(false);
+
+  // Data clearing state
+  const [clearingProjects, setClearingProjects] = useState(false);
+  const [clearingOpportunities, setClearingOpportunities] = useState(false);
+  const [clearingServiceTickets, setClearingServiceTickets] = useState(false);
 
   useEffect(() => {
     if (!isElectron()) return;
@@ -144,9 +151,52 @@ export default function SettingsPanel() {
     }
   };
 
+  const handleClearProjects = async () => {
+    if (!isElectron()) return;
+    if (!confirm('Are you sure you want to clear all projects? This cannot be undone.')) return;
+    setClearingProjects(true);
+    try {
+      const result = await electronProjectsApi.clearAll();
+      showToast('success', `Cleared ${result.deleted} projects`);
+    } catch (err) {
+      showToast('error', 'Failed to clear projects');
+    } finally {
+      setClearingProjects(false);
+    }
+  };
+
+  const handleClearOpportunities = async () => {
+    if (!isElectron()) return;
+    if (!confirm('Are you sure you want to clear all opportunities? This cannot be undone.')) return;
+    setClearingOpportunities(true);
+    try {
+      const result = await electronOpportunitiesApi.clearAll();
+      showToast('success', `Cleared ${result.deleted} opportunities`);
+    } catch (err) {
+      showToast('error', 'Failed to clear opportunities');
+    } finally {
+      setClearingOpportunities(false);
+    }
+  };
+
+  const handleClearServiceTickets = async () => {
+    if (!isElectron()) return;
+    if (!confirm('Are you sure you want to clear all service tickets? This cannot be undone.')) return;
+    setClearingServiceTickets(true);
+    try {
+      const result = await electronServiceTicketsApi.clearAll();
+      showToast('success', `Cleared ${result.deleted} service tickets`);
+    } catch (err) {
+      showToast('error', 'Failed to clear service tickets');
+    } finally {
+      setClearingServiceTickets(false);
+    }
+  };
+
   const tabs: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
     { id: 'feeds', label: 'Data Feeds', icon: <Rss size={16} /> },
     { id: 'sync', label: 'Sync Settings', icon: <RefreshCw size={16} /> },
+    { id: 'data', label: 'Data Management', icon: <Database size={16} /> },
     { id: 'updates', label: 'Updates', icon: <Download size={16} /> },
     { id: 'about', label: 'About', icon: <Info size={16} /> },
   ];
@@ -260,6 +310,99 @@ export default function SettingsPanel() {
                           </>
                         )}
                       </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'data' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-medium text-white mb-4">Data Management</h2>
+
+                {!isElectron() ? (
+                  <div className="bg-board-panel border border-board-border rounded-lg p-6 text-center">
+                    <AlertCircle size={32} className="text-yellow-500 mx-auto mb-3" />
+                    <h3 className="text-white font-medium mb-2">Desktop Only Feature</h3>
+                    <p className="text-gray-400 text-sm">
+                      Data management is only available in the desktop application.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 flex items-start gap-3">
+                      <AlertCircle size={20} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="text-sm font-medium text-yellow-400 mb-1">Reset Synced Data</h4>
+                        <p className="text-xs text-gray-400">
+                          Use these options to clear synced data if you need to re-sync from scratch.
+                          This is useful if data becomes corrupted or out of sync with the source.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-board-panel border border-board-border rounded-lg divide-y divide-board-border">
+                      {/* Projects */}
+                      <div className="p-4 flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-medium text-white">Projects</h4>
+                          <p className="text-xs text-gray-500">Clear all synced project data</p>
+                        </div>
+                        <button
+                          onClick={handleClearProjects}
+                          disabled={clearingProjects}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 rounded text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {clearingProjects ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={14} />
+                          )}
+                          Clear Projects
+                        </button>
+                      </div>
+
+                      {/* Opportunities */}
+                      <div className="p-4 flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-medium text-white">Opportunities</h4>
+                          <p className="text-xs text-gray-500">Clear all synced opportunity data</p>
+                        </div>
+                        <button
+                          onClick={handleClearOpportunities}
+                          disabled={clearingOpportunities}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 rounded text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {clearingOpportunities ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={14} />
+                          )}
+                          Clear Opportunities
+                        </button>
+                      </div>
+
+                      {/* Service Tickets */}
+                      <div className="p-4 flex items-center justify-between">
+                        <div>
+                          <h4 className="text-sm font-medium text-white">Service Tickets</h4>
+                          <p className="text-xs text-gray-500">Clear all synced service ticket data</p>
+                        </div>
+                        <button
+                          onClick={handleClearServiceTickets}
+                          disabled={clearingServiceTickets}
+                          className="flex items-center gap-2 px-3 py-1.5 bg-red-600/20 hover:bg-red-600/30 border border-red-500/30 text-red-400 rounded text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {clearingServiceTickets ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={14} />
+                          )}
+                          Clear Service Tickets
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}

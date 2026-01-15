@@ -26,6 +26,10 @@ export function registerIpcHandlers(): void {
     return projectService.getByExternalId(externalId);
   });
 
+  ipcMain.handle('projects:clearAll', async () => {
+    return projectService.clearAll();
+  });
+
   // ============================================
   // Opportunities
   // ============================================
@@ -47,6 +51,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('opportunities:getSalesReps', async () => {
     return opportunityService.getSalesReps();
+  });
+
+  ipcMain.handle('opportunities:clearAll', async () => {
+    return opportunityService.clearAll();
   });
 
   // ============================================
@@ -82,6 +90,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('serviceTickets:getBoards', async () => {
     return serviceTicketService.getBoards();
+  });
+
+  ipcMain.handle('serviceTickets:clearAll', async () => {
+    return serviceTicketService.clearAll();
   });
 
   // ============================================

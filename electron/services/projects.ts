@@ -179,3 +179,14 @@ export function getCount(includeInactive = false): number {
   const row = db.prepare(sql).get() as { count: number };
   return row.count;
 }
+
+/**
+ * Clear all projects from the database
+ */
+export function clearAll(): { deleted: number } {
+  const db = getDatabase();
+  const count = getCount(true);
+  db.prepare('DELETE FROM projects').run();
+  console.log(`[Projects] Cleared ${count} records`);
+  return { deleted: count };
+}
