@@ -57,20 +57,30 @@ export interface EntityChangeSummary {
   }>;
 }
 
+/**
+ * Append 'Z' to UTC timestamps from SQLite so JavaScript parses them correctly.
+ * SQLite datetime('now') stores UTC but without timezone indicator.
+ */
+function toUtcTimestamp(dateStr: string | null): string | null {
+  if (!dateStr) return null;
+  // SQLite format: "2026-01-15 11:00:00" -> "2026-01-15T11:00:00Z"
+  return dateStr.replace(' ', 'T') + 'Z';
+}
+
 function transformSyncHistory(row: SyncHistoryRow): SyncHistory {
   return {
     id: row.id,
     syncType: row.sync_type,
     status: row.status,
     triggeredBy: row.triggered_by,
-    startedAt: row.started_at,
-    completedAt: row.completed_at,
+    startedAt: toUtcTimestamp(row.started_at),
+    completedAt: toUtcTimestamp(row.completed_at),
     recordsProcessed: row.records_processed,
     recordsCreated: row.records_created,
     recordsUpdated: row.records_updated,
     recordsUnchanged: row.records_unchanged,
     errorMessage: row.error_message,
-    createdAt: row.created_at,
+    createdAt: toUtcTimestamp(row.created_at) || row.created_at,
   };
 }
 
