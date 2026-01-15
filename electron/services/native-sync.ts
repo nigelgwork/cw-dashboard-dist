@@ -589,9 +589,11 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
   // Determine if active based on status
   // Active statuses: "1. New", "2. In Progress", "3. Completed - Ready to Invoice", "4. On-Hold", "8. Re-Opened"
   // Inactive statuses: "6. Completed", "7. Cancelled"
+  // Default to active if status is empty/unknown
   const lowerStatus = status.toLowerCase();
-  const isActive = !lowerStatus.includes('completed') && !lowerStatus.includes('cancelled') &&
-                   !lowerStatus.includes('closed') && lowerStatus !== '';
+  const isInactive = lowerStatus.includes('completed') || lowerStatus.includes('cancelled') ||
+                     lowerStatus.includes('closed');
+  const isActive = !isInactive; // Default to active, only mark inactive for completed/cancelled/closed
 
   // Financial fields
   const budget = parseNumber(entry.Quoted3 || entry.Budget || entry.QuotedAmount);
