@@ -533,6 +533,7 @@ export function applyDynamicDates(url: string, lookbackDays: number = 730): stri
 
 /**
  * Parameters in detail feed URLs that contain the project ID placeholder
+ * These all need to be replaced with the actual project ID when fetching details
  */
 const PROJECT_ID_PARAMETERS = [
   'ProjectNo',
@@ -541,6 +542,9 @@ const PROJECT_ID_PARAMETERS = [
   'Project_ID',
   'ProjectId',
   'Project_Id',
+  'PM_Project_RecID',  // ConnectWise internal project record ID
+  'Project_RecID',
+  'ProjectRecID',
 ];
 
 /**
