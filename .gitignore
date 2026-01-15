@@ -61,3 +61,4 @@ backups/
 
 # Zone.Identifier files (Windows WSL)
 *:Zone.Identifier
+*.atomsvc

@@ -106,8 +106,10 @@ export async function parseAtomSvcFile(content: string): Promise<ParsedAtomFeed[
               console.log(`[AtomSvcParser] Detected feed type: ${feedType}`);
 
               // Decode HTML entities first, then clean the URL
+              // For PROJECT_DETAIL feeds, preserve multi-value parameters (don't remove "Select All")
               const decodedUrl = decodeAtomUrl(href);
-              const { cleanedUrl, removedParams } = cleanSsrsUrl(decodedUrl);
+              const preserveMultiValue = feedType === 'PROJECT_DETAIL';
+              const { cleanedUrl, removedParams } = cleanSsrsUrl(decodedUrl, preserveMultiValue);
 
               if (removedParams.length > 0) {
                 console.log(`[AtomSvcParser] Cleaned URL - removed ${removedParams.length} data parameters (${removedParams.join(', ')})`);
@@ -230,8 +232,11 @@ const FILTER_PARAMETERS = [
  * 1. Remove data parameters (specific record IDs)
  * 2. Keep filter parameters (Locations, Status, etc.)
  * 3. Keep SSRS rendering parameters (rs:Command, rs:Format, rc:ItemPath)
+ *
+ * @param url The SSRS feed URL to clean
+ * @param preserveMultiValue If true, don't remove parameters with many values (for detail feeds)
  */
-export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: string[]; keptParams: string[] } {
+export function cleanSsrsUrl(url: string, preserveMultiValue: boolean = false): { cleanedUrl: string; removedParams: string[]; keptParams: string[] } {
   const removedParams: string[] = [];
   const keptParams: string[] = [];
 
@@ -273,7 +278,11 @@ export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: 
     // Log parameters with high counts
     for (const [key, count] of Object.entries(paramCounts)) {
       if (count > MAX_PARAMETER_VALUES) {
-        console.log(`[AtomSvcParser] Parameter "${key}" has ${count} values (exceeds max ${MAX_PARAMETER_VALUES}) - will be removed as "Select All"`);
+        if (preserveMultiValue) {
+          console.log(`[AtomSvcParser] Parameter "${key}" has ${count} values - preserving for detail feed`);
+        } else {
+          console.log(`[AtomSvcParser] Parameter "${key}" has ${count} values (exceeds max ${MAX_PARAMETER_VALUES}) - will be removed as "Select All"`);
+        }
       }
     }
 
@@ -302,7 +311,8 @@ export function cleanSsrsUrl(url: string): { cleanedUrl: string; removedParams: 
       }
 
       // Check if this parameter has too many values (treat as "Select All" and remove)
-      if (paramCounts[key] > MAX_PARAMETER_VALUES) {
+      // UNLESS preserveMultiValue is true (for detail feeds that need all filter values)
+      if (!preserveMultiValue && paramCounts[key] > MAX_PARAMETER_VALUES) {
         removedParams.push(key);
         continue;
       }
