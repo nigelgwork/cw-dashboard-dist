@@ -403,3 +403,119 @@ export function extractReportParameters(url: string): Record<string, string[]> {
 
   return params;
 }
+
+/**
+ * Date parameters - end dates should be set to today
+ */
+const END_DATE_PARAMETERS = [
+  'ThruDate',
+  'EndDate',
+  'DateTo',
+  'ToDate',
+  'End_Date',
+  'Thru_Date',
+];
+
+/**
+ * Date parameters - start dates should be set to (today - lookbackDays)
+ */
+const START_DATE_PARAMETERS = [
+  'FromDate',
+  'StartDate',
+  'DateFrom',
+  'Start_Date',
+  'From_Date',
+  'BeginDate',
+  'Begin_Date',
+];
+
+/**
+ * Format a date as M/D/YYYY for SSRS (e.g., "1/15/2024")
+ * SSRS typically expects this format for date parameters
+ */
+function formatDateForSsrs(date: Date): string {
+  const month = date.getMonth() + 1; // getMonth() is 0-indexed
+  const day = date.getDate();
+  const year = date.getFullYear();
+  return `${month}/${day}/${year}`;
+}
+
+/**
+ * Apply dynamic dates to an SSRS URL at sync time
+ *
+ * This replaces static date parameters from the ATOMSVC file with current dates:
+ * - End dates (ThruDate, EndDate, etc.) → today
+ * - Start dates (FromDate, StartDate, etc.) → today - lookbackDays
+ *
+ * @param url The SSRS feed URL
+ * @param lookbackDays Number of days to look back for start dates (default 730 = 2 years)
+ * @returns URL with dynamic dates applied
+ */
+export function applyDynamicDates(url: string, lookbackDays: number = 730): string {
+  try {
+    const urlObj = new URL(url);
+    const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
+
+    // Parse query string manually since SSRS uses non-standard format
+    const queryString = urlObj.search.substring(1); // Remove leading ?
+    const parts = queryString.split('&');
+
+    // Calculate dates
+    const today = new Date();
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - lookbackDays);
+
+    const todayFormatted = formatDateForSsrs(today);
+    const startDateFormatted = formatDateForSsrs(startDate);
+
+    console.log(`[AtomSvcParser] Applying dynamic dates: FromDate=${startDateFormatted}, ThruDate=${todayFormatted}`);
+
+    const updatedParts: string[] = [];
+    let datesUpdated = 0;
+
+    for (const part of parts) {
+      if (!part) continue;
+
+      const eqIndex = part.indexOf('=');
+      if (eqIndex === -1) {
+        // No = sign, keep as-is (likely report path)
+        updatedParts.push(part);
+        continue;
+      }
+
+      const key = part.substring(0, eqIndex);
+      const keyLower = key.toLowerCase();
+
+      // Check if this is an end date parameter
+      const isEndDate = END_DATE_PARAMETERS.some(p => p.toLowerCase() === keyLower);
+      if (isEndDate) {
+        updatedParts.push(`${key}=${encodeURIComponent(todayFormatted)}`);
+        datesUpdated++;
+        continue;
+      }
+
+      // Check if this is a start date parameter
+      const isStartDate = START_DATE_PARAMETERS.some(p => p.toLowerCase() === keyLower);
+      if (isStartDate) {
+        updatedParts.push(`${key}=${encodeURIComponent(startDateFormatted)}`);
+        datesUpdated++;
+        continue;
+      }
+
+      // Keep other parameters as-is
+      updatedParts.push(part);
+    }
+
+    if (datesUpdated > 0) {
+      console.log(`[AtomSvcParser] Updated ${datesUpdated} date parameters`);
+    } else {
+      console.log(`[AtomSvcParser] No date parameters found in URL`);
+    }
+
+    return baseUrl + '?' + updatedParts.join('&');
+  } catch (error) {
+    console.error('[AtomSvcParser] Error applying dynamic dates:', error);
+    // Return original URL if processing fails
+    return url;
+  }
+}

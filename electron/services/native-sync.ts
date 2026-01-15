@@ -11,6 +11,8 @@ import { session } from 'electron';
 import { parseStringPromise } from 'xml2js';
 import { getDatabase } from '../database/connection';
 import { ProjectRow, OpportunityRow, ServiceTicketRow } from '../database/schema';
+import { applyDynamicDates } from './atomsvc-parser';
+import { getDateLookbackDays } from './settings';
 
 export interface SyncResult {
   success: boolean;
@@ -128,8 +130,12 @@ export async function syncProjects(
   const db = getDatabase();
 
   try {
+    // Apply dynamic dates to URL before fetching
+    const lookbackDays = getDateLookbackDays();
+    const dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+
     // Fetch the feed
-    const xmlContent = await fetchAtomFeed(feedUrl);
+    const xmlContent = await fetchAtomFeed(dynamicUrl);
 
     // Parse entries
     const entries = await parseAtomFeed(xmlContent);
@@ -271,8 +277,12 @@ export async function syncOpportunities(
   const db = getDatabase();
 
   try {
+    // Apply dynamic dates to URL before fetching
+    const lookbackDays = getDateLookbackDays();
+    const dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+
     // Fetch the feed
-    const xmlContent = await fetchAtomFeed(feedUrl);
+    const xmlContent = await fetchAtomFeed(dynamicUrl);
 
     // Parse entries
     const entries = await parseAtomFeed(xmlContent);
@@ -413,8 +423,12 @@ export async function syncServiceTickets(
   const db = getDatabase();
 
   try {
+    // Apply dynamic dates to URL before fetching
+    const lookbackDays = getDateLookbackDays();
+    const dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+
     // Fetch the feed
-    const xmlContent = await fetchAtomFeed(feedUrl);
+    const xmlContent = await fetchAtomFeed(dynamicUrl);
 
     // Parse entries
     const entries = await parseAtomFeed(xmlContent);
@@ -783,7 +797,11 @@ export async function testFeedConnection(feedUrl: string): Promise<{
   error?: string;
 }> {
   try {
-    const xmlContent = await fetchAtomFeed(feedUrl);
+    // Apply dynamic dates to URL before testing
+    const lookbackDays = getDateLookbackDays();
+    const dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+
+    const xmlContent = await fetchAtomFeed(dynamicUrl);
     const entries = await parseAtomFeed(xmlContent);
 
     return {

@@ -81,6 +81,7 @@ export const SettingKeys = {
   WINDOW_BOUNDS: 'window_bounds',
   THEME: 'theme',
   GITHUB_TOKEN: 'github_token',
+  DATE_LOOKBACK_DAYS: 'date_lookback_days',
 } as const;
 
 // Default values
@@ -88,6 +89,7 @@ export const SettingDefaults = {
   [SettingKeys.SYNC_INTERVAL_MINUTES]: '60',
   [SettingKeys.AUTO_SYNC_ENABLED]: 'true',
   [SettingKeys.THEME]: 'dark',
+  [SettingKeys.DATE_LOOKBACK_DAYS]: '730', // 2 years default
 } as const;
 
 /**
@@ -115,4 +117,9 @@ export function getWindowBounds(): { x: number; y: number; width: number; height
 
 export function setWindowBounds(bounds: { x: number; y: number; width: number; height: number }): void {
   setSetting(SettingKeys.WINDOW_BOUNDS, JSON.stringify(bounds));
+}
+
+export function getDateLookbackDays(): number {
+  const value = getSetting(SettingKeys.DATE_LOOKBACK_DAYS);
+  return value ? parseInt(value, 10) : parseInt(SettingDefaults[SettingKeys.DATE_LOOKBACK_DAYS], 10);
 }
