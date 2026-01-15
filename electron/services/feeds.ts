@@ -246,6 +246,7 @@ export async function testFetchProjectDetail(specificProjectId?: string): Promis
     constructedUrl: string;
     xmlLength?: number;
     xmlPreview?: string;
+    entryCount?: number;
   };
 }> {
   const db = getDatabase();
@@ -292,12 +293,20 @@ export async function testFetchProjectDetail(specificProjectId?: string): Promis
     // Try to fetch the raw XML for debugging
     let xmlLength: number | undefined;
     let xmlPreview: string | undefined;
+    let entryCount: number | undefined;
+    let hasEntries = false;
     try {
       const xmlContent = await fetchAtomFeed(constructedUrl);
       xmlLength = xmlContent.length;
-      // Show first 500 chars of XML for debugging
-      xmlPreview = xmlContent.substring(0, 500);
+      // Show first 1000 chars of XML for debugging
+      xmlPreview = xmlContent.substring(0, 1000);
+      // Count entries in the response
+      const entryMatches = xmlContent.match(/<entry>/gi);
+      entryCount = entryMatches ? entryMatches.length : 0;
+      hasEntries = entryCount > 0;
+      console.log(`[TestFetch] XML length: ${xmlLength}, entries found: ${entryCount}`);
     } catch (fetchErr) {
+      console.log(`[TestFetch] Error fetching raw XML:`, fetchErr);
       // Ignore - we'll show the main error
     }
 
@@ -307,12 +316,13 @@ export async function testFetchProjectDetail(specificProjectId?: string): Promis
       return {
         success: false,
         projectId: projectId,
-        error: `No detail data returned for project ${projectId}. The detail feed may not have data for this project ID.`,
+        error: `No detail data returned for project ${projectId}. The detail feed may not have data for this project ID. (${entryCount || 0} entries in XML response)`,
         debug: {
           detailFeedUrl: projectsFeed.detail_feed_url,
           constructedUrl,
           xmlLength,
           xmlPreview,
+          entryCount,
         },
       };
     }
@@ -326,6 +336,7 @@ export async function testFetchProjectDetail(specificProjectId?: string): Promis
         detailFeedUrl: projectsFeed.detail_feed_url,
         constructedUrl,
         xmlLength,
+        entryCount,
       },
     };
   } catch (err) {

@@ -606,6 +606,14 @@ export function createDetailFeedUrl(detailFeedUrl: string, projectId: string): s
       }
 
       const key = part.substring(0, eqIndex);
+      const decodedKey = decodeURIComponent(key);
+
+      // Skip rc:ItemPath - this parameter specifies a specific data region (tablix)
+      // which may be empty. Removing it returns all data or the default region.
+      if (decodedKey.toLowerCase() === 'rc:itempath') {
+        console.log(`[AtomSvcParser] Removing rc:ItemPath parameter to get all data regions`);
+        continue;
+      }
 
       // Check if this is a project ID parameter
       const isProjectIdParam = PROJECT_ID_PARAMETERS.some(p =>

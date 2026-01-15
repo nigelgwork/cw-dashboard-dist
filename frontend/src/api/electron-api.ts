@@ -424,6 +424,7 @@ export interface TestFetchDetailResult {
     constructedUrl: string;
     xmlLength?: number;
     xmlPreview?: string;
+    entryCount?: number;
   };
 }
 

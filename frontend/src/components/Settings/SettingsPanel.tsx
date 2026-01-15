@@ -665,6 +665,14 @@ export default function SettingsPanel() {
                                                 <span className="text-gray-300">{testResult.debug.xmlLength} bytes</span>
                                               </div>
                                             )}
+                                            {testResult.debug.entryCount !== undefined && (
+                                              <div>
+                                                <span className="text-gray-500">Entries Found: </span>
+                                                <span className={testResult.debug.entryCount > 0 ? "text-green-400" : "text-yellow-400"}>
+                                                  {testResult.debug.entryCount} {testResult.debug.entryCount === 0 ? '(empty response)' : ''}
+                                                </span>
+                                              </div>
+                                            )}
                                             {testResult.debug.xmlPreview && (
                                               <div>
                                                 <span className="text-gray-500">Response Preview: </span>
