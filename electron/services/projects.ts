@@ -240,6 +240,7 @@ export function getDetailSyncDiagnostics(): {
   totalProjects: number;
   sampleExternalIds: string[];
   sampleDetailData: { externalId: string; fieldCount: number; fields: string[] } | null;
+  sampleRawDataFields: { externalId: string; allFields: string[]; idFields: Record<string, string> } | null;
 } {
   const db = getDatabase();
 
@@ -278,10 +279,43 @@ export function getDetailSyncDiagnostics(): {
     }
   }
 
+  // Get sample raw_data (from main feed) to show available ID fields
+  let sampleRawDataFields: { externalId: string; allFields: string[]; idFields: Record<string, string> } | null = null;
+  const rawRow = db
+    .prepare('SELECT external_id, raw_data FROM projects WHERE raw_data IS NOT NULL LIMIT 1')
+    .get() as { external_id: string; raw_data: string } | undefined;
+
+  if (rawRow) {
+    try {
+      const parsed = JSON.parse(rawRow.raw_data);
+      const allFields = Object.keys(parsed).sort();
+
+      // Extract any ID-related fields
+      const idFields: Record<string, string> = {};
+      const idKeyPatterns = ['id', 'projectno', 'project_no', 'projectid', 'project_id', 'recid', 'rec_id', 'number', 'no'];
+
+      for (const key of allFields) {
+        const lowerKey = key.toLowerCase();
+        if (idKeyPatterns.some(pattern => lowerKey.includes(pattern))) {
+          idFields[key] = String(parsed[key] ?? '');
+        }
+      }
+
+      sampleRawDataFields = {
+        externalId: rawRow.external_id,
+        allFields,
+        idFields,
+      };
+    } catch {
+      // Invalid JSON
+    }
+  }
+
   return {
     projectsWithDetailData: withDetailCount.count,
     totalProjects: totalCount.count,
     sampleExternalIds,
     sampleDetailData,
+    sampleRawDataFields,
   };
 }

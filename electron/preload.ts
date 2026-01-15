@@ -253,6 +253,7 @@ interface ProjectDetailDiagnostics {
   totalProjects: number;
   sampleExternalIds: string[];
   sampleDetailData: { externalId: string; fieldCount: number; fields: string[] } | null;
+  sampleRawDataFields: { externalId: string; allFields: string[]; idFields: Record<string, string> } | null;
 }
 
 interface FeedDetailDiagnostics {

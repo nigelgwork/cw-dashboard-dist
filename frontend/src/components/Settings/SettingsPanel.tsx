@@ -560,6 +560,32 @@ export default function SettingsPanel() {
                                 </div>
                               )}
 
+                              {/* Main Feed ID Fields */}
+                              {projectDiagnostics?.sampleRawDataFields && (
+                                <div className="space-y-2">
+                                  <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Main Feed ID Fields</h4>
+                                  <div className="p-2 bg-board-bg rounded text-xs space-y-1">
+                                    <div className="text-gray-500 mb-1">Fields containing ID/No/Number from main feed:</div>
+                                    {Object.entries(projectDiagnostics.sampleRawDataFields.idFields).length > 0 ? (
+                                      Object.entries(projectDiagnostics.sampleRawDataFields.idFields).map(([key, value]) => (
+                                        <div key={key} className="flex gap-2 font-mono">
+                                          <span className="text-purple-400">{key}:</span>
+                                          <span className="text-gray-300">{value}</span>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="text-gray-500">No ID fields found</div>
+                                    )}
+                                    <div className="mt-2 pt-2 border-t border-board-border text-gray-500">
+                                      Currently using external_id: <span className="text-gray-300">{projectDiagnostics.sampleRawDataFields.externalId}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-gray-500">
+                                    If the detail report expects a different field (e.g., ProjectNo instead of ID), the test will fail.
+                                  </div>
+                                </div>
+                              )}
+
                               {/* Test Fetch Button */}
                               <div className="pt-3 border-t border-board-border space-y-2">
                                 <div className="flex items-center gap-2">
