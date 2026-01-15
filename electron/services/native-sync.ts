@@ -203,12 +203,21 @@ export async function syncProjects(
     let detailFeedUrl: string | null = null;
     const adaptiveSyncEnabled = isAdaptiveSyncEnabled();
 
+    console.log(`[NativeSync] feedId=${feedId}, adaptiveSyncEnabled=${adaptiveSyncEnabled}`);
+
     if (feedId && adaptiveSyncEnabled) {
       const detailFeed = getDetailFeed(feedId);
+      console.log(`[NativeSync] getDetailFeed result:`, detailFeed ? { id: detailFeed.id, name: detailFeed.name, isActive: detailFeed.isActive, feedUrl: detailFeed.feedUrl?.substring(0, 50) } : null);
       if (detailFeed && detailFeed.isActive) {
         detailFeedUrl = detailFeed.feedUrl;
         console.log(`[NativeSync] Adaptive sync enabled - will fetch details from: ${detailFeed.name}`);
+      } else if (detailFeed && !detailFeed.isActive) {
+        console.log(`[NativeSync] Detail feed found but not active`);
+      } else {
+        console.log(`[NativeSync] No detail feed linked to this projects feed`);
       }
+    } else {
+      console.log(`[NativeSync] Adaptive sync skipped: feedId=${feedId}, enabled=${adaptiveSyncEnabled}`);
     }
 
     // Fetch the feed
@@ -733,6 +742,7 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
     is_active: isActive ? 1 : 0,
     notes,
     raw_data: rawData,
+    detail_raw_data: null,
   };
 }
 
