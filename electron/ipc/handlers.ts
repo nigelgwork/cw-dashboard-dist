@@ -229,10 +229,6 @@ export function registerIpcHandlers(): void {
     return autoUpdaterService.getCurrentVersion();
   });
 
-  ipcMain.handle('updates:skipVersion', async (_, version: string) => {
-    autoUpdaterService.skipVersion(version);
-  });
-
   ipcMain.handle('updates:setGitHubToken', async (_, token: string | null) => {
     autoUpdaterService.setGitHubToken(token);
   });

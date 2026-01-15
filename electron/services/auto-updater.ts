@@ -78,15 +78,6 @@ export function initAutoUpdater(window: BrowserWindow): void {
   });
 
   autoUpdater.on('update-available', (info: UpdateInfo) => {
-    const skipVersion = getSetting(SettingKeys.SKIP_VERSION);
-
-    // Check if user has chosen to skip this version
-    if (skipVersion === info.version) {
-      console.log(`Skipping update to version ${info.version} (user preference)`);
-      updateStatus = { ...updateStatus, checking: false };
-      return;
-    }
-
     updateStatus = {
       ...updateStatus,
       checking: false,
@@ -279,12 +270,7 @@ export async function checkForUpdates(): Promise<UpdateStatus> {
       const remoteVersion = result.updateInfo.version;
       console.log(`[AutoUpdater] Remote version: ${remoteVersion}`);
 
-      const skipVersion = getSetting(SettingKeys.SKIP_VERSION);
-
-      if (skipVersion === remoteVersion) {
-        console.log(`[AutoUpdater] Skipping version ${remoteVersion} (user preference)`);
-        updateStatus = { ...updateStatus, checking: false, available: false };
-      } else if (compareVersions(remoteVersion, currentVersion) > 0) {
+      if (compareVersions(remoteVersion, currentVersion) > 0) {
         // Remote version is newer
         console.log(`[AutoUpdater] Update available: ${currentVersion} -> ${remoteVersion}`);
         updateStatus = {
@@ -339,14 +325,6 @@ export function installUpdate(): void {
   }
 
   autoUpdater.quitAndInstall(false, true);
-}
-
-/**
- * Skip a specific version
- */
-export function skipVersion(version: string): void {
-  setSetting(SettingKeys.SKIP_VERSION, version);
-  updateStatus = { ...updateStatus, available: false };
 }
 
 /**
