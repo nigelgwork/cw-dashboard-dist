@@ -57,21 +57,53 @@ export async function parseAtomSvcFile(content: string): Promise<ParsedAtomFeed[
       for (const workspace of result.service.workspace) {
         console.log('[AtomSvcParser] Workspace keys:', Object.keys(workspace));
 
+        // Get the workspace title - this is usually the report name like "Opportunity List"
+        // Check both 'atom:title' and 'title' keys since xml2js lowercases and may have namespace prefix
+        const workspaceTitle = extractString(workspace['atom:title'] || workspace.title, '');
+        console.log(`[AtomSvcParser] Workspace title: "${workspaceTitle}"`);
+
         if (workspace.collection) {
-          for (const collection of workspace.collection) {
+          const collections = workspace.collection;
+          const collectionCount = collections.length;
+
+          for (let i = 0; i < collectionCount; i++) {
+            const collection = collections[i];
             console.log('[AtomSvcParser] Collection:', JSON.stringify(collection, null, 2));
 
             const href = collection.$?.href || collection.href;
-            const title = extractString(collection.title, 'Unnamed Feed');
+            const collectionTitle = extractString(collection['atom:title'] || collection.title, '');
 
-            console.log(`[AtomSvcParser] Extracted - title: "${title}", href: "${href}"`);
+            console.log(`[AtomSvcParser] Extracted - collectionTitle: "${collectionTitle}", href: "${href}"`);
 
             if (href) {
-              const feedType = detectFeedType(href, title);
+              // Determine the feed name:
+              // 1. If workspace title exists and collection title is just "TablixN", use workspace title
+              // 2. If multiple collections, append a number suffix
+              // 3. Otherwise use collection title or workspace title
+              let feedName = collectionTitle || workspaceTitle || 'Unnamed Feed';
+
+              // If collection title is a generic Tablix name, prefer workspace title
+              const isGenericName = /^tablix\d*$/i.test(collectionTitle) ||
+                                    /^table\d*$/i.test(collectionTitle) ||
+                                    /^chart\d*$/i.test(collectionTitle) ||
+                                    /^matrix\d*$/i.test(collectionTitle);
+
+              if (isGenericName && workspaceTitle) {
+                feedName = workspaceTitle;
+                // If multiple collections with generic names, add suffix
+                if (collectionCount > 1) {
+                  feedName = `${workspaceTitle} (${i + 1})`;
+                }
+              }
+
+              console.log(`[AtomSvcParser] Final feed name: "${feedName}"`);
+
+              // Use workspace title for better type detection
+              const feedType = detectFeedType(href, workspaceTitle || collectionTitle);
               console.log(`[AtomSvcParser] Detected feed type: ${feedType}`);
 
               feeds.push({
-                name: title,
+                name: feedName,
                 feedUrl: decodeAtomUrl(href),
                 feedType,
               });
