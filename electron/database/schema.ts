@@ -3,7 +3,7 @@
  * Equivalent to the PostgreSQL schema from the original backend
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const createTablesSQL = `
 -- Projects table

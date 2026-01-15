@@ -117,6 +117,41 @@ async function runMigration(version: number): Promise<void> {
         console.log('detail_feed_id column may already exist:', e);
       }
       break;
+    case 4:
+      // Recreate atom_feeds table to update CHECK constraint to include PROJECT_DETAIL
+      console.log('Updating atom_feeds table to support PROJECT_DETAIL feed type');
+      try {
+        db.exec(`
+          -- Create new table with updated CHECK constraint
+          CREATE TABLE IF NOT EXISTS atom_feeds_new (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            feed_type TEXT NOT NULL CHECK (feed_type IN ('PROJECTS', 'OPPORTUNITIES', 'SERVICE_TICKETS', 'PROJECT_DETAIL')),
+            feed_url TEXT NOT NULL,
+            detail_feed_id INTEGER,
+            last_sync TEXT,
+            is_active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now')),
+            FOREIGN KEY (detail_feed_id) REFERENCES atom_feeds_new(id) ON DELETE SET NULL
+          );
+
+          -- Copy existing data
+          INSERT INTO atom_feeds_new (id, name, feed_type, feed_url, detail_feed_id, last_sync, is_active, created_at, updated_at)
+          SELECT id, name, feed_type, feed_url, detail_feed_id, last_sync, is_active, created_at, updated_at
+          FROM atom_feeds;
+
+          -- Drop old table
+          DROP TABLE atom_feeds;
+
+          -- Rename new table
+          ALTER TABLE atom_feeds_new RENAME TO atom_feeds;
+        `);
+        console.log('atom_feeds table updated successfully');
+      } catch (e) {
+        console.log('Error updating atom_feeds table:', e);
+      }
+      break;
     default:
       console.log(`No migration needed for version ${version}`);
   }
