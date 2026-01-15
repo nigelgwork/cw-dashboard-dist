@@ -117,6 +117,49 @@ npm run dist:win
 # Output in ./release folder
 ```
 
+## Releasing a New Version
+
+**IMPORTANT**: Do NOT build locally on Linux/WSL2. Native modules (better-sqlite3) must be compiled on Windows. Use GitHub Actions.
+
+### Release Workflow
+
+1. **Update version** in `package.json`
+2. **Commit and push** with version in commit message:
+   ```bash
+   git add -A && git commit -m "Description of changes (v1.0.21)"
+   git push
+   ```
+3. **Create and push a git tag**:
+   ```bash
+   git tag v1.0.21
+   git push origin v1.0.21
+   ```
+4. **GitHub Actions automatically**:
+   - Builds on `windows-latest` runner
+   - Compiles native modules for Windows
+   - Creates/updates the GitHub Release
+   - Uploads all required assets
+
+### Manual Workflow Trigger
+
+If you need to re-run the build without creating a new tag:
+```bash
+gh workflow run build-windows.yml --ref v1.0.21
+```
+
+### Checking Build Status
+
+```bash
+gh run list --workflow=build-windows.yml --limit 5
+gh run watch  # Watch the latest run
+```
+
+### Required Release Assets (auto-uploaded by workflow)
+
+- `CW-Dashboard-Setup-X.X.X.exe` - The installer
+- `CW-Dashboard-Setup-X.X.X.exe.blockmap` - Delta update support
+- `latest.yml` - Version metadata for electron-updater
+
 ## Design Tokens
 
 ```css

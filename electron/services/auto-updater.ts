@@ -1,6 +1,8 @@
 import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater';
 import { BrowserWindow, app } from 'electron';
 import { getSetting, setSetting, SettingKeys } from './settings';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // GitHub repository info for updates
 const GITHUB_OWNER = 'nigelgwork';
@@ -112,7 +114,42 @@ export function initAutoUpdater(window: BrowserWindow): void {
     notifyRenderer('update:progress', { percent: updateStatus.progress });
   });
 
-  autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+  autoUpdater.on('update-downloaded', async (info: UpdateInfo) => {
+    console.log(`[AutoUpdater] Download complete for version ${info.version}, validating...`);
+
+    // Find and validate the downloaded file
+    const downloadedFile = findDownloadedUpdate();
+
+    if (downloadedFile) {
+      console.log(`[AutoUpdater] Found downloaded file: ${downloadedFile}`);
+      const validation = await validateWindowsExecutable(downloadedFile);
+
+      if (!validation.valid) {
+        console.error(`[AutoUpdater] Validation failed: ${validation.error}`);
+
+        // Delete the invalid file
+        try {
+          fs.unlinkSync(downloadedFile);
+          console.log('[AutoUpdater] Deleted invalid download file');
+        } catch (e) {
+          console.error('[AutoUpdater] Failed to delete invalid file:', e);
+        }
+
+        updateStatus = {
+          ...updateStatus,
+          downloading: false,
+          downloaded: false,
+          error: `Update validation failed: ${validation.error}. The update may have been built for a different platform.`,
+        };
+        notifyRenderer('update:error', { error: updateStatus.error });
+        return;
+      }
+
+      console.log('[AutoUpdater] Validation passed');
+    } else {
+      console.log('[AutoUpdater] Could not find downloaded file for validation (may be OK)');
+    }
+
     updateStatus = {
       ...updateStatus,
       downloading: false,
@@ -142,6 +179,70 @@ function notifyRenderer(channel: string, data?: Record<string, unknown>): void {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, data);
   }
+}
+
+/**
+ * Validate that a downloaded file is a valid Windows PE executable
+ * Checks for MZ header and PE signature
+ */
+async function validateWindowsExecutable(filePath: string): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const buffer = Buffer.alloc(512);
+    fs.readSync(fd, buffer, 0, 512, 0);
+    fs.closeSync(fd);
+
+    // Check MZ header (DOS stub)
+    if (buffer[0] !== 0x4D || buffer[1] !== 0x5A) {
+      return { valid: false, error: 'Invalid file format: Missing MZ header' };
+    }
+
+    // Get PE header offset from DOS header (at offset 0x3C)
+    const peOffset = buffer.readUInt32LE(0x3C);
+
+    if (peOffset > 400) {
+      // PE offset is too far, might be invalid
+      return { valid: false, error: 'Invalid PE header offset' };
+    }
+
+    // Check PE signature
+    if (buffer[peOffset] !== 0x50 || buffer[peOffset + 1] !== 0x45 ||
+        buffer[peOffset + 2] !== 0x00 || buffer[peOffset + 3] !== 0x00) {
+      return { valid: false, error: 'Invalid file format: Missing PE signature' };
+    }
+
+    // Check machine type (should be x64 = 0x8664 or x86 = 0x14C)
+    const machineType = buffer.readUInt16LE(peOffset + 4);
+    if (machineType !== 0x8664 && machineType !== 0x14C) {
+      return { valid: false, error: `Unsupported architecture: 0x${machineType.toString(16)}` };
+    }
+
+    console.log(`[AutoUpdater] Validated executable: Machine type 0x${machineType.toString(16)} (${machineType === 0x8664 ? 'x64' : 'x86'})`);
+    return { valid: true };
+  } catch (error) {
+    return { valid: false, error: `Validation failed: ${error instanceof Error ? error.message : 'Unknown error'}` };
+  }
+}
+
+/**
+ * Find the downloaded update file in the update cache
+ */
+function findDownloadedUpdate(): string | null {
+  const updateCachePath = path.join(app.getPath('userData'), 'pending');
+
+  if (!fs.existsSync(updateCachePath)) {
+    console.log('[AutoUpdater] Update cache path does not exist:', updateCachePath);
+    return null;
+  }
+
+  const files = fs.readdirSync(updateCachePath);
+  const exeFile = files.find(f => f.endsWith('.exe'));
+
+  if (exeFile) {
+    return path.join(updateCachePath, exeFile);
+  }
+
+  return null;
 }
 
 /**
