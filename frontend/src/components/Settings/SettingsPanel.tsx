@@ -11,9 +11,12 @@ import {
   Database,
   Trash2,
   FileText,
+  Bug,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import AtomFeedManager from './AtomFeedManager';
-import { isElectron, electronUpdatesApi, electronSettingsApi, electronProjectsApi, electronOpportunitiesApi, electronServiceTicketsApi } from '../../api/electron-api';
+import { isElectron, electronUpdatesApi, electronSettingsApi, electronProjectsApi, electronOpportunitiesApi, electronServiceTicketsApi, electronFeedsApi, ProjectDetailDiagnostics, FeedDetailDiagnostics } from '../../api/electron-api';
 import { useToast } from '../../context/ToastContext';
 
 type SettingsTab = 'feeds' | 'sync' | 'detail-fields' | 'data' | 'updates' | 'about';
@@ -77,6 +80,10 @@ export default function SettingsPanel() {
   const [selectedDetailFields, setSelectedDetailFields] = useState<string[]>([]);
   const [loadingDetailFields, setLoadingDetailFields] = useState(false);
   const [savingDetailFields, setSavingDetailFields] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [projectDiagnostics, setProjectDiagnostics] = useState<ProjectDetailDiagnostics | null>(null);
+  const [feedDiagnostics, setFeedDiagnostics] = useState<FeedDetailDiagnostics | null>(null);
+  const [loadingDiagnostics, setLoadingDiagnostics] = useState(false);
 
   useEffect(() => {
     if (!isElectron()) return;
@@ -146,6 +153,23 @@ export default function SettingsPanel() {
         ? prev.filter(f => f !== field)
         : [...prev, field]
     );
+  };
+
+  const loadDiagnostics = async () => {
+    if (!isElectron()) return;
+    setLoadingDiagnostics(true);
+    try {
+      const [projectDiag, feedDiag] = await Promise.all([
+        electronProjectsApi.getDetailSyncDiagnostics(),
+        electronFeedsApi.getDetailSyncDiagnostics(),
+      ]);
+      setProjectDiagnostics(projectDiag);
+      setFeedDiagnostics(feedDiag);
+    } catch (err) {
+      console.error('Failed to load diagnostics:', err);
+    } finally {
+      setLoadingDiagnostics(false);
+    }
   };
 
   const handleCheckUpdate = async () => {
@@ -400,17 +424,132 @@ export default function SettingsPanel() {
                     <p className="text-gray-400 text-sm">Loading available fields...</p>
                   </div>
                 ) : availableDetailFields.length === 0 ? (
-                  <div className="bg-board-panel border border-board-border rounded-lg p-6 text-center">
-                    <FileText size={32} className="text-gray-500 mx-auto mb-3" />
-                    <h3 className="text-white font-medium mb-2">No Detail Data Available</h3>
-                    <p className="text-gray-400 text-sm">
-                      To use this feature, you need to:
-                    </p>
-                    <ol className="text-gray-400 text-sm text-left max-w-sm mx-auto mt-3 space-y-1">
-                      <li>1. Import a PROJECT_DETAIL feed</li>
-                      <li>2. Link it to your PROJECTS feed in Data Feeds</li>
-                      <li>3. Run a sync to populate the detail data</li>
-                    </ol>
+                  <div className="space-y-4">
+                    <div className="bg-board-panel border border-board-border rounded-lg p-6 text-center">
+                      <FileText size={32} className="text-gray-500 mx-auto mb-3" />
+                      <h3 className="text-white font-medium mb-2">No Detail Data Available</h3>
+                      <p className="text-gray-400 text-sm">
+                        To use this feature, you need to:
+                      </p>
+                      <ol className="text-gray-400 text-sm text-left max-w-sm mx-auto mt-3 space-y-1">
+                        <li>1. Import a PROJECT_DETAIL feed</li>
+                        <li>2. Link it to your PROJECTS feed in Data Feeds</li>
+                        <li>3. Run a sync to populate the detail data</li>
+                      </ol>
+                    </div>
+
+                    {/* Diagnostics Section */}
+                    <div className="bg-board-panel border border-board-border rounded-lg overflow-hidden">
+                      <button
+                        onClick={() => {
+                          setShowDiagnostics(!showDiagnostics);
+                          if (!showDiagnostics && !projectDiagnostics) {
+                            loadDiagnostics();
+                          }
+                        }}
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-board-bg transition-colors"
+                      >
+                        <div className="flex items-center gap-2 text-gray-400">
+                          <Bug size={16} />
+                          <span className="text-sm font-medium">Troubleshoot Configuration</span>
+                        </div>
+                        {showDiagnostics ? <ChevronUp size={16} className="text-gray-500" /> : <ChevronDown size={16} className="text-gray-500" />}
+                      </button>
+
+                      {showDiagnostics && (
+                        <div className="p-4 border-t border-board-border space-y-4">
+                          {loadingDiagnostics ? (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 size={20} className="text-gray-400 animate-spin" />
+                            </div>
+                          ) : (
+                            <>
+                              {/* Feed Configuration */}
+                              {feedDiagnostics && (
+                                <div className="space-y-2">
+                                  <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Feed Configuration</h4>
+                                  <div className="text-xs space-y-1">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">Adaptive Sync</span>
+                                      <span className={feedDiagnostics.adaptiveSyncEnabled ? 'text-green-400' : 'text-red-400'}>
+                                        {feedDiagnostics.adaptiveSyncEnabled ? 'Enabled' : 'Disabled'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">PROJECTS Feeds</span>
+                                      <span className="text-gray-300">{feedDiagnostics.projectsFeeds.length}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">PROJECT_DETAIL Feeds</span>
+                                      <span className="text-gray-300">{feedDiagnostics.detailFeeds.length}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">Linked Pairs</span>
+                                      <span className={feedDiagnostics.linkedPairs.length > 0 ? 'text-green-400' : 'text-yellow-400'}>
+                                        {feedDiagnostics.linkedPairs.length}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {feedDiagnostics.linkedPairs.length > 0 && (
+                                    <div className="mt-2 p-2 bg-board-bg rounded text-xs">
+                                      <span className="text-gray-500">Linked: </span>
+                                      {feedDiagnostics.linkedPairs.map((pair, i) => (
+                                        <span key={i} className="text-green-400">
+                                          {pair.projectsFeedName} → {pair.detailFeedName}
+                                          {i < feedDiagnostics.linkedPairs.length - 1 ? ', ' : ''}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
+                                  {feedDiagnostics.linkedPairs.length === 0 && feedDiagnostics.detailFeeds.length > 0 && (
+                                    <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
+                                      You have a detail feed but it's not linked. Go to Data Feeds and link it to your PROJECTS feed.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Project Data */}
+                              {projectDiagnostics && (
+                                <div className="space-y-2">
+                                  <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider">Project Data</h4>
+                                  <div className="text-xs space-y-1">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">Total Projects</span>
+                                      <span className="text-gray-300">{projectDiagnostics.totalProjects}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">With Detail Data</span>
+                                      <span className={projectDiagnostics.projectsWithDetailData > 0 ? 'text-green-400' : 'text-yellow-400'}>
+                                        {projectDiagnostics.projectsWithDetailData}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {projectDiagnostics.sampleExternalIds.length > 0 && (
+                                    <div className="mt-2 p-2 bg-board-bg rounded text-xs">
+                                      <span className="text-gray-500">Sample Project IDs: </span>
+                                      <span className="text-gray-300">{projectDiagnostics.sampleExternalIds.join(', ')}</span>
+                                    </div>
+                                  )}
+                                  {projectDiagnostics.projectsWithDetailData === 0 && projectDiagnostics.totalProjects > 0 && (
+                                    <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
+                                      Projects exist but have no detail data. Run a sync after linking feeds.
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              <button
+                                onClick={loadDiagnostics}
+                                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                              >
+                                Refresh Diagnostics
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-4">

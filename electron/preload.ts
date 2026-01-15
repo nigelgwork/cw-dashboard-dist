@@ -9,6 +9,7 @@ export interface ElectronAPI {
     getByExternalId: (externalId: string) => Promise<Project | null>;
     clearAll: () => Promise<ClearDataResult>;
     getAvailableDetailFields: () => Promise<string[]>;
+    getDetailSyncDiagnostics: () => Promise<ProjectDetailDiagnostics>;
   };
 
   // Opportunities
@@ -55,6 +56,7 @@ export interface ElectronAPI {
     linkDetail: (summaryFeedId: number, detailFeedId: number) => Promise<AtomFeed | null>;
     unlinkDetail: (summaryFeedId: number) => Promise<AtomFeed | null>;
     getDetailFeeds: () => Promise<AtomFeed[]>;
+    getDetailSyncDiagnostics: () => Promise<FeedDetailDiagnostics>;
   };
 
   // Settings
@@ -245,6 +247,20 @@ interface GitHubTokenStatus {
   maskedToken: string | null;
 }
 
+interface ProjectDetailDiagnostics {
+  projectsWithDetailData: number;
+  totalProjects: number;
+  sampleExternalIds: string[];
+  sampleDetailData: { externalId: string; fieldCount: number; fields: string[] } | null;
+}
+
+interface FeedDetailDiagnostics {
+  adaptiveSyncEnabled: boolean;
+  projectsFeeds: { id: number; name: string; isActive: boolean; hasDetailLink: boolean; detailFeedId: number | null }[];
+  detailFeeds: { id: number; name: string; isActive: boolean; feedUrl: string }[];
+  linkedPairs: { projectsFeedId: number; projectsFeedName: string; detailFeedId: number; detailFeedName: string }[];
+}
+
 // Valid channels for events from main process
 const validEventChannels = [
   'sync:progress',
@@ -271,6 +287,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStatuses: () => ipcRenderer.invoke('projects:getStatuses'),
     clearAll: () => ipcRenderer.invoke('projects:clearAll'),
     getAvailableDetailFields: () => ipcRenderer.invoke('projects:getAvailableDetailFields'),
+    getDetailSyncDiagnostics: () => ipcRenderer.invoke('projects:getDetailSyncDiagnostics'),
   },
 
   // Opportunities
@@ -317,6 +334,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     linkDetail: (summaryFeedId: number, detailFeedId: number) => ipcRenderer.invoke('feeds:linkDetail', summaryFeedId, detailFeedId),
     unlinkDetail: (summaryFeedId: number) => ipcRenderer.invoke('feeds:unlinkDetail', summaryFeedId),
     getDetailFeeds: () => ipcRenderer.invoke('feeds:getDetailFeeds'),
+    getDetailSyncDiagnostics: () => ipcRenderer.invoke('feeds:getDetailSyncDiagnostics'),
   },
 
   // Settings

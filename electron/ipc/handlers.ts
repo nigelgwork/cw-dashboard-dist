@@ -190,6 +190,14 @@ export function registerIpcHandlers(): void {
     return feedService.getDetailFeeds();
   });
 
+  ipcMain.handle('feeds:getDetailSyncDiagnostics', async () => {
+    return feedService.getDetailSyncConfigDiagnostics();
+  });
+
+  ipcMain.handle('projects:getDetailSyncDiagnostics', async () => {
+    return projectService.getDetailSyncDiagnostics();
+  });
+
   // ============================================
   // Settings
   // ============================================

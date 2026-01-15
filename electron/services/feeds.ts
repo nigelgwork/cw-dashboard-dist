@@ -230,3 +230,62 @@ export function getDetailFeeds(): AtomFeed[] {
   const rows = db.prepare("SELECT * FROM atom_feeds WHERE feed_type = 'PROJECT_DETAIL' ORDER BY name").all() as AtomFeedRow[];
   return rows.map(transformRow);
 }
+
+/**
+ * Get comprehensive diagnostics for detail sync troubleshooting
+ */
+export function getDetailSyncConfigDiagnostics(): {
+  adaptiveSyncEnabled: boolean;
+  projectsFeeds: { id: number; name: string; isActive: boolean; hasDetailLink: boolean; detailFeedId: number | null }[];
+  detailFeeds: { id: number; name: string; isActive: boolean; feedUrl: string }[];
+  linkedPairs: { projectsFeedId: number; projectsFeedName: string; detailFeedId: number; detailFeedName: string }[];
+} {
+  const db = getDatabase();
+
+  // Check adaptive sync setting
+  const adaptiveSetting = db.prepare("SELECT value FROM settings WHERE key = 'adaptive_sync_enabled'").get() as { value: string } | undefined;
+  // Default is true if not set
+  const adaptiveSyncEnabled = adaptiveSetting ? adaptiveSetting.value === 'true' : true;
+
+  // Get all PROJECTS feeds
+  const projectsFeedsRows = db.prepare("SELECT * FROM atom_feeds WHERE feed_type = 'PROJECTS' ORDER BY name").all() as AtomFeedRow[];
+  const projectsFeeds = projectsFeedsRows.map(row => ({
+    id: row.id,
+    name: row.name,
+    isActive: row.is_active === 1,
+    hasDetailLink: row.detail_feed_id !== null,
+    detailFeedId: row.detail_feed_id,
+  }));
+
+  // Get all PROJECT_DETAIL feeds
+  const detailFeedsRows = db.prepare("SELECT * FROM atom_feeds WHERE feed_type = 'PROJECT_DETAIL' ORDER BY name").all() as AtomFeedRow[];
+  const detailFeeds = detailFeedsRows.map(row => ({
+    id: row.id,
+    name: row.name,
+    isActive: row.is_active === 1,
+    feedUrl: row.feed_url.length > 100 ? row.feed_url.substring(0, 100) + '...' : row.feed_url,
+  }));
+
+  // Find linked pairs
+  const linkedPairs: { projectsFeedId: number; projectsFeedName: string; detailFeedId: number; detailFeedName: string }[] = [];
+  for (const pf of projectsFeedsRows) {
+    if (pf.detail_feed_id) {
+      const df = detailFeedsRows.find(d => d.id === pf.detail_feed_id);
+      if (df) {
+        linkedPairs.push({
+          projectsFeedId: pf.id,
+          projectsFeedName: pf.name,
+          detailFeedId: df.id,
+          detailFeedName: df.name,
+        });
+      }
+    }
+  }
+
+  return {
+    adaptiveSyncEnabled,
+    projectsFeeds,
+    detailFeeds,
+    linkedPairs,
+  };
+}

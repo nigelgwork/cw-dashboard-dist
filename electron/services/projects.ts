@@ -230,3 +230,58 @@ export function getAvailableDetailFields(): string[] {
   // Return sorted array of field names
   return Array.from(allFields).sort();
 }
+
+/**
+ * Diagnostic function to check detail sync configuration
+ * Returns information about feeds, linking, and project data
+ */
+export function getDetailSyncDiagnostics(): {
+  projectsWithDetailData: number;
+  totalProjects: number;
+  sampleExternalIds: string[];
+  sampleDetailData: { externalId: string; fieldCount: number; fields: string[] } | null;
+} {
+  const db = getDatabase();
+
+  // Count projects with detail data
+  const withDetailCount = db
+    .prepare('SELECT COUNT(*) as count FROM projects WHERE detail_raw_data IS NOT NULL')
+    .get() as { count: number };
+
+  const totalCount = db
+    .prepare('SELECT COUNT(*) as count FROM projects')
+    .get() as { count: number };
+
+  // Get sample external IDs
+  const sampleRows = db
+    .prepare('SELECT external_id FROM projects LIMIT 5')
+    .all() as { external_id: string }[];
+  const sampleExternalIds = sampleRows.map(r => r.external_id);
+
+  // Get sample detail data
+  let sampleDetailData: { externalId: string; fieldCount: number; fields: string[] } | null = null;
+  const detailRow = db
+    .prepare('SELECT external_id, detail_raw_data FROM projects WHERE detail_raw_data IS NOT NULL LIMIT 1')
+    .get() as { external_id: string; detail_raw_data: string } | undefined;
+
+  if (detailRow) {
+    try {
+      const parsed = JSON.parse(detailRow.detail_raw_data);
+      const fields = Object.keys(parsed);
+      sampleDetailData = {
+        externalId: detailRow.external_id,
+        fieldCount: fields.length,
+        fields: fields.slice(0, 20), // First 20 fields
+      };
+    } catch {
+      // Invalid JSON
+    }
+  }
+
+  return {
+    projectsWithDetailData: withDetailCount.count,
+    totalProjects: totalCount.count,
+    sampleExternalIds,
+    sampleDetailData,
+  };
+}

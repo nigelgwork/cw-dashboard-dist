@@ -92,7 +92,19 @@ export const electronProjectsApi = {
     const api = getElectronAPI();
     return api.projects.getAvailableDetailFields();
   },
+
+  getDetailSyncDiagnostics: async (): Promise<ProjectDetailDiagnostics> => {
+    const api = getElectronAPI();
+    return api.projects.getDetailSyncDiagnostics();
+  },
 };
+
+export interface ProjectDetailDiagnostics {
+  projectsWithDetailData: number;
+  totalProjects: number;
+  sampleExternalIds: string[];
+  sampleDetailData: { externalId: string; fieldCount: number; fields: string[] } | null;
+}
 
 // ============================================
 // Opportunities API
@@ -381,7 +393,19 @@ export const electronFeedsApi = {
     const api = getElectronAPI();
     return api.feeds.getDetailFeeds();
   },
+
+  getDetailSyncDiagnostics: async (): Promise<FeedDetailDiagnostics> => {
+    const api = getElectronAPI();
+    return api.feeds.getDetailSyncDiagnostics();
+  },
 };
+
+export interface FeedDetailDiagnostics {
+  adaptiveSyncEnabled: boolean;
+  projectsFeeds: { id: number; name: string; isActive: boolean; hasDetailLink: boolean; detailFeedId: number | null }[];
+  detailFeeds: { id: number; name: string; isActive: boolean; feedUrl: string }[];
+  linkedPairs: { projectsFeedId: number; projectsFeedName: string; detailFeedId: number; detailFeedName: string }[];
+}
 
 // ============================================
 // Settings API (Electron only)

@@ -316,6 +316,7 @@ export async function syncProjects(
             'status',
             'is_active',
             'notes',
+            'detail_raw_data',
           ]);
 
           if (changes.length > 0) {
