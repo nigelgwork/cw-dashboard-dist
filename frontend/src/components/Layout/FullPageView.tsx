@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { FolderKanban, TrendingUp, Ticket, Search, Filter, List, LayoutGrid } from 'lucide-react';
-import { Project, Opportunity, ServiceTicket, ProjectStatus } from '../../types';
+import { Project, Opportunity, ServiceTicket } from '../../types';
 import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron } from '../../api';
 import { useWebSocket } from '../../context/WebSocketContext';
 import ProjectCard from '../Project/ProjectCard';
@@ -14,13 +14,6 @@ interface FullPageViewProps {
   isPinned: (type: ViewType, id: number) => boolean;
   togglePin: (type: ViewType, id: number) => void;
 }
-
-const statusOptions: { value: ProjectStatus | 'ALL'; label: string }[] = [
-  { value: 'ALL', label: 'All' },
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'ON_HOLD', label: 'On Hold' },
-  { value: 'COMPLETED', label: 'Completed' },
-];
 
 // Parse PM name from notes field
 const parsePMFromNotes = (notes: string | undefined): string | null => {
@@ -42,8 +35,9 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   const [detailedView, setDetailedView] = useState(true);
 
   // Project-specific filters
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState('');
   const [pmFilter, setPmFilter] = useState('');
+  const [projectStatuses, setProjectStatuses] = useState<string[]>([]);
 
   // Opportunity-specific filters
   const [stageFilter, setStageFilter] = useState('');
@@ -65,8 +59,12 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
       setLoading(true);
       try {
         if (type === 'projects') {
-          const data = await projectsApi.getAll({});
+          const [data, statusesData] = await Promise.all([
+            projectsApi.getAll({}),
+            projectsApi.getStatuses(),
+          ]);
           setProjects(data);
+          setProjectStatuses(statusesData);
         } else if (type === 'opportunities') {
           const [data, stagesData, repsData] = await Promise.all([
             opportunitiesApi.getAll({}),
@@ -127,7 +125,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   // Filter projects
   const filteredProjects = useMemo(() => {
     return projects.filter((project) => {
-      if (statusFilter !== 'ALL' && project.status !== statusFilter) return false;
+      if (statusFilter && project.status !== statusFilter) return false;
       if (pmFilter) {
         const pm = parsePMFromNotes(project.notes);
         if (pm !== pmFilter) return false;
@@ -175,7 +173,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   }, [serviceTickets, ticketStatusFilter, priorityFilter, assigneeFilter, searchText]);
 
   const hasActiveFilters = type === 'projects'
-    ? statusFilter !== 'ALL' || pmFilter !== '' || searchText.trim() !== ''
+    ? statusFilter !== '' || pmFilter !== '' || searchText.trim() !== ''
     : type === 'opportunities'
     ? stageFilter !== '' || salesRepFilter !== '' || searchText.trim() !== ''
     : ticketStatusFilter !== '' || priorityFilter !== '' || assigneeFilter !== '' || searchText.trim() !== '';
@@ -269,6 +267,18 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
         <div className="px-4 py-3 bg-board-panel border-b border-board-border flex items-center gap-3 flex-shrink-0">
           {type === 'projects' && (
             <>
+              {/* Status filter */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white focus:outline-none focus:border-purple-500"
+              >
+                <option value="">All Statuses ({projectStatuses.length})</option>
+                {projectStatuses.map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+
               {/* PM filter */}
               <select
                 value={pmFilter}
@@ -280,23 +290,6 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
                   <option key={pm} value={pm}>{pm}</option>
                 ))}
               </select>
-
-              {/* Status filter */}
-              <div className="flex gap-1">
-                {statusOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setStatusFilter(option.value)}
-                    className={`px-3 py-2 text-sm rounded-lg transition-colors ${
-                      statusFilter === option.value
-                        ? 'bg-purple-500 text-white'
-                        : 'bg-board-bg border border-board-border text-gray-400 hover:text-white hover:border-gray-500'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
             </>
           )}
 

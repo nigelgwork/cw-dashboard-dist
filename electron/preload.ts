@@ -261,6 +261,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getAll: (options?: ProjectQueryOptions) => ipcRenderer.invoke('projects:getAll', options),
     getById: (id: number) => ipcRenderer.invoke('projects:getById', id),
     getByExternalId: (externalId: string) => ipcRenderer.invoke('projects:getByExternalId', externalId),
+    getStatuses: () => ipcRenderer.invoke('projects:getStatuses'),
     clearAll: () => ipcRenderer.invoke('projects:clearAll'),
   },
 

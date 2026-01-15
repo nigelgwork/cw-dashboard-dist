@@ -7,8 +7,8 @@ import {
   formatPercent,
   formatDate,
   formatNotes,
-  PROJECT_STATUS_STYLES,
-  PROJECT_STATUS_COLORS,
+  getProjectStatusStyle,
+  getProjectStatusColor,
 } from '../../utils/formatting';
 
 interface ProjectCardProps {
@@ -42,7 +42,7 @@ export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpa
   return (
     <div
       onClick={handleClick}
-      className={`bg-board-bg border border-board-border border-l-2 ${PROJECT_STATUS_STYLES[project.status] || ''} rounded px-2 py-1.5 ${!alwaysExpanded ? 'cursor-pointer hover:bg-board-border/30' : ''} transition-all`}
+      className={`bg-board-bg border border-board-border border-l-2 ${getProjectStatusStyle(project.status)} rounded px-2 py-1.5 ${!alwaysExpanded ? 'cursor-pointer hover:bg-board-border/30' : ''} transition-all`}
     >
       {/* First row: Client name, Pin, and Status */}
       <div className="flex items-center gap-2">
@@ -60,8 +60,8 @@ export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpa
             <Pin size={12} fill={isPinned ? 'currentColor' : 'none'} />
           </button>
         )}
-        <span className={`text-[11px] flex-shrink-0 ${PROJECT_STATUS_COLORS[project.status] || 'text-gray-400'}`}>
-          {project.status.replace('_', ' ')}
+        <span className={`text-[11px] flex-shrink-0 ${getProjectStatusColor(project.status)}`}>
+          {project.status}
         </span>
         {!alwaysExpanded && (
           <button className="text-gray-500 p-0.5">

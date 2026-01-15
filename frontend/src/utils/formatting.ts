@@ -58,7 +58,71 @@ export function formatNotes(notes: string | undefined | null): string {
 }
 
 /**
- * Project status styles (border and background)
+ * Get project status styles (border and background) based on status string
+ * Supports dynamic SSRS status values like "1. New", "2. In Progress", "6. Completed", etc.
+ */
+export function getProjectStatusStyle(status: string | undefined | null): string {
+  if (!status) return 'border-l-gray-500 bg-gray-500/5';
+  const s = status.toLowerCase();
+
+  // Completed states - gray
+  if (s.includes('completed') || s.includes('closed') || s.includes('cancelled') || s.includes('canceled')) {
+    return 'border-l-gray-500 bg-gray-500/5';
+  }
+
+  // On hold / waiting states - yellow
+  if (s.includes('hold') || s.includes('waiting') || s.includes('pending')) {
+    return 'border-l-yellow-500 bg-yellow-500/5';
+  }
+
+  // In progress / active states - green
+  if (s.includes('progress') || s.includes('active') || s.includes('working') || s.includes('assigned')) {
+    return 'border-l-green-500 bg-green-500/5';
+  }
+
+  // New / open states - blue
+  if (s.includes('new') || s.includes('open') || s.includes('re-opened') || s.includes('reopened')) {
+    return 'border-l-blue-500 bg-blue-500/5';
+  }
+
+  // Default - green (assume active)
+  return 'border-l-green-500 bg-green-500/5';
+}
+
+/**
+ * Get project status text color based on status string
+ */
+export function getProjectStatusColor(status: string | undefined | null): string {
+  if (!status) return 'text-gray-400';
+  const s = status.toLowerCase();
+
+  // Completed states - gray
+  if (s.includes('completed') || s.includes('closed') || s.includes('cancelled') || s.includes('canceled')) {
+    return 'text-gray-400';
+  }
+
+  // On hold / waiting states - yellow
+  if (s.includes('hold') || s.includes('waiting') || s.includes('pending')) {
+    return 'text-yellow-400';
+  }
+
+  // In progress / active states - green
+  if (s.includes('progress') || s.includes('active') || s.includes('working') || s.includes('assigned')) {
+    return 'text-green-400';
+  }
+
+  // New / open states - blue
+  if (s.includes('new') || s.includes('open') || s.includes('re-opened') || s.includes('reopened')) {
+    return 'text-blue-400';
+  }
+
+  // Default - green (assume active)
+  return 'text-green-400';
+}
+
+/**
+ * Legacy compatibility - static maps for backward compatibility
+ * @deprecated Use getProjectStatusStyle() and getProjectStatusColor() instead
  */
 export const PROJECT_STATUS_STYLES: Record<string, string> = {
   ACTIVE: 'border-l-green-500 bg-green-500/5',
@@ -66,9 +130,6 @@ export const PROJECT_STATUS_STYLES: Record<string, string> = {
   COMPLETED: 'border-l-gray-500 bg-gray-500/5',
 };
 
-/**
- * Project status text colors
- */
 export const PROJECT_STATUS_COLORS: Record<string, string> = {
   ACTIVE: 'text-green-400',
   ON_HOLD: 'text-yellow-400',

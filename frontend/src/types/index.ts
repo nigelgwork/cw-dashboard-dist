@@ -111,7 +111,7 @@ export interface Project {
   spent?: number;
   hoursEstimate?: number;
   hoursRemaining?: number;
-  status: ProjectStatus;
+  status: string;
   isActive: boolean;
   notes?: string;
   budgetRemaining?: number;
@@ -119,8 +119,6 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
 }
-
-export type ProjectStatus = 'ACTIVE' | 'ON_HOLD' | 'COMPLETED';
 
 export interface Opportunity {
   id: number;
@@ -155,7 +153,7 @@ export interface ProjectAPI {
   spent?: number;
   hours_estimate?: number;
   hours_remaining?: number;
-  status: ProjectStatus;
+  status: string;
   is_active: boolean;
   notes?: string;
   budget_remaining?: number;

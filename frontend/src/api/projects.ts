@@ -69,4 +69,10 @@ export const projectsApi = {
     const data = await api.get<ProjectAPI>(`/projects/external/${externalId}`);
     return transformProject(data);
   },
+
+  getStatuses: async (): Promise<string[]> => {
+    // Web API - fetch statuses from backend
+    const data = await api.get<string[]>('/projects/statuses');
+    return data;
+  },
 };

@@ -30,6 +30,10 @@ export function registerIpcHandlers(): void {
     return projectService.clearAll();
   });
 
+  ipcMain.handle('projects:getStatuses', async () => {
+    return projectService.getStatuses();
+  });
+
   // ============================================
   // Opportunities
   // ============================================

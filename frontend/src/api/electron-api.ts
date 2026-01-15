@@ -82,6 +82,11 @@ export const electronProjectsApi = {
     const api = getElectronAPI();
     return api.projects.clearAll();
   },
+
+  getStatuses: async (): Promise<string[]> => {
+    const api = getElectronAPI();
+    return api.projects.getStatuses();
+  },
 };
 
 // ============================================
