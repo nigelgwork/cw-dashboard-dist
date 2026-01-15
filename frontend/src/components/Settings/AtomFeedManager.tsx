@@ -11,6 +11,9 @@ import {
   XCircle,
   ExternalLink,
   Clock,
+  Pencil,
+  Save,
+  X,
 } from 'lucide-react';
 import { electronFeedsApi, isElectron } from '../../api/electron-api';
 import { feedsApi } from '../../api/feeds';
@@ -64,15 +67,20 @@ interface FeedCardProps {
   feed: AtomFeed;
   onTest: (feedId: number) => Promise<FeedTestResult>;
   onDelete: (feedId: number) => Promise<void>;
+  onUpdate: (feedId: number, updates: { name?: string; feedType?: FeedType }) => Promise<void>;
 }
 
-function FeedCard({ feed, onTest, onDelete }: FeedCardProps) {
+function FeedCard({ feed, onTest, onDelete, onUpdate }: FeedCardProps) {
   const [testing, setTesting] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState(feed.name);
+  const [editType, setEditType] = useState<FeedType>(feed.feedType);
   const [testResult, setTestResult] = useState<FeedTestResult | null>(null);
 
-  const TypeIcon = getFeedTypeIcon(feed.feedType);
-  const { text: typeColor, bg: typeBgColor } = getFeedTypeColor(feed.feedType);
+  const TypeIcon = getFeedTypeIcon(editing ? editType : feed.feedType);
+  const { text: typeColor, bg: typeBgColor } = getFeedTypeColor(editing ? editType : feed.feedType);
 
   const handleTest = async () => {
     setTesting(true);
@@ -97,6 +105,28 @@ function FeedCard({ feed, onTest, onDelete }: FeedCardProps) {
     }
   };
 
+  const handleStartEdit = () => {
+    setEditName(feed.name);
+    setEditType(feed.feedType);
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditName(feed.name);
+    setEditType(feed.feedType);
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      await onUpdate(feed.id, { name: editName, feedType: editType });
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="bg-board-bg border border-board-border rounded-lg p-4">
       <div className="flex items-start justify-between mb-3">
@@ -104,36 +134,91 @@ function FeedCard({ feed, onTest, onDelete }: FeedCardProps) {
           <div className={`p-2 rounded-lg ${typeBgColor}`}>
             <TypeIcon size={20} className={typeColor} />
           </div>
-          <div>
-            <h3 className="text-sm font-medium text-white">{feed.name}</h3>
-            <span className={`text-xs ${typeColor}`}>{feed.feedType.replace('_', ' ')}</span>
-          </div>
+          {editing ? (
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="px-2 py-1 text-sm bg-board-panel border border-board-border rounded text-white w-full focus:outline-none focus:border-blue-500"
+                placeholder="Feed name"
+              />
+              <select
+                value={editType}
+                onChange={(e) => setEditType(e.target.value as FeedType)}
+                className="px-2 py-1 text-xs bg-board-panel border border-board-border rounded text-white w-full focus:outline-none focus:border-blue-500"
+              >
+                <option value="PROJECTS">Projects</option>
+                <option value="OPPORTUNITIES">Opportunities</option>
+                <option value="SERVICE_TICKETS">Service Tickets</option>
+              </select>
+            </div>
+          ) : (
+            <div>
+              <h3 className="text-sm font-medium text-white">{feed.name}</h3>
+              <span className={`text-xs ${typeColor}`}>{feed.feedType.replace('_', ' ')}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1">
-          <button
-            onClick={handleTest}
-            disabled={testing}
-            className="p-1.5 text-gray-400 hover:text-white hover:bg-board-border rounded transition-colors disabled:opacity-50"
-            title="Test feed connection"
-          >
-            {testing ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <PlayCircle size={16} />
-            )}
-          </button>
-          <button
-            onClick={handleDelete}
-            disabled={deleting}
-            className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded transition-colors disabled:opacity-50"
-            title="Delete feed"
-          >
-            {deleting ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Trash2 size={16} />
-            )}
-          </button>
+          {editing ? (
+            <>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="p-1.5 text-green-400 hover:text-green-300 hover:bg-green-500/20 rounded transition-colors disabled:opacity-50"
+                title="Save changes"
+              >
+                {saving ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Save size={16} />
+                )}
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                disabled={saving}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-board-border rounded transition-colors"
+                title="Cancel"
+              >
+                <X size={16} />
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleStartEdit}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-board-border rounded transition-colors"
+                title="Edit feed"
+              >
+                <Pencil size={16} />
+              </button>
+              <button
+                onClick={handleTest}
+                disabled={testing}
+                className="p-1.5 text-gray-400 hover:text-white hover:bg-board-border rounded transition-colors disabled:opacity-50"
+                title="Test feed connection"
+              >
+                {testing ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <PlayCircle size={16} />
+                )}
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded transition-colors disabled:opacity-50"
+                title="Delete feed"
+              >
+                {deleting ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Trash2 size={16} />
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -285,6 +370,23 @@ export default function AtomFeedManager() {
     }
   };
 
+  const handleUpdate = async (feedId: number, updates: { name?: string; feedType?: FeedType }) => {
+    try {
+      if (inElectron) {
+        await electronFeedsApi.update(feedId, updates);
+      } else {
+        // Web mode would need a different API - for now just refetch
+        console.warn('Feed update not supported in web mode');
+      }
+      showToast('success', 'Feed updated');
+      fetchFeeds();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update feed';
+      showToast('error', message);
+      throw err; // Re-throw so the card knows the save failed
+    }
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(true);
@@ -419,6 +521,7 @@ export default function AtomFeedManager() {
               feed={feed}
               onTest={handleTest}
               onDelete={handleDelete}
+              onUpdate={handleUpdate}
             />
           ))}
         </div>

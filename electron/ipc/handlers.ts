@@ -166,6 +166,10 @@ export function registerIpcHandlers(): void {
     return feedService.testFeed(feedId);
   });
 
+  ipcMain.handle('feeds:update', async (_, feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }) => {
+    return feedService.updateFeed(feedId, updates);
+  });
+
   // ============================================
   // Settings
   // ============================================

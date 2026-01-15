@@ -7,6 +7,26 @@ export interface ParsedAtomFeed {
 }
 
 /**
+ * Extract string value from xml2js parsed node
+ * Handles various formats: string, {_: string}, [{_: string}], etc.
+ */
+function extractString(node: unknown, defaultValue: string = ''): string {
+  if (!node) return defaultValue;
+  if (typeof node === 'string') return node;
+  if (Array.isArray(node)) {
+    const first = node[0];
+    if (typeof first === 'string') return first;
+    if (first && typeof first === 'object' && '_' in first) return String(first._);
+    if (first && typeof first === 'object' && '#text' in first) return String((first as Record<string, unknown>)['#text']);
+  }
+  if (typeof node === 'object' && node !== null) {
+    if ('_' in node) return String((node as Record<string, unknown>)._);
+    if ('#text' in node) return String((node as Record<string, unknown>)['#text']);
+  }
+  return defaultValue;
+}
+
+/**
  * Parse an ATOMSVC file content
  *
  * ATOMSVC files are XML subscription documents from SSRS with this structure:
@@ -30,19 +50,30 @@ export async function parseAtomSvcFile(content: string): Promise<ParsedAtomFeed[
       tagNameProcessors: [(name) => name.toLowerCase()],
     });
 
+    console.log('[AtomSvcParser] Parsed structure keys:', Object.keys(result));
+
     // Handle ATOMSVC format
     if (result.service?.workspace) {
       for (const workspace of result.service.workspace) {
+        console.log('[AtomSvcParser] Workspace keys:', Object.keys(workspace));
+
         if (workspace.collection) {
           for (const collection of workspace.collection) {
+            console.log('[AtomSvcParser] Collection:', JSON.stringify(collection, null, 2));
+
             const href = collection.$?.href || collection.href;
-            const title = collection.title?.[0] || collection.title || 'Unnamed Feed';
+            const title = extractString(collection.title, 'Unnamed Feed');
+
+            console.log(`[AtomSvcParser] Extracted - title: "${title}", href: "${href}"`);
 
             if (href) {
+              const feedType = detectFeedType(href, title);
+              console.log(`[AtomSvcParser] Detected feed type: ${feedType}`);
+
               feeds.push({
-                name: typeof title === 'string' ? title : title._ || 'Unnamed Feed',
+                name: title,
                 feedUrl: decodeAtomUrl(href),
-                feedType: detectFeedType(href),
+                feedType,
               });
             }
           }
@@ -82,25 +113,31 @@ function decodeAtomUrl(url: string): string {
 }
 
 /**
- * Detect feed type based on URL content
+ * Detect feed type based on URL content and title
  */
-function detectFeedType(url: string): 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' {
+function detectFeedType(url: string, title: string = ''): 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' {
   const lowerUrl = url.toLowerCase();
+  const lowerTitle = title.toLowerCase();
+  const combined = lowerUrl + ' ' + lowerTitle;
 
   // Check for service tickets patterns first (more specific)
-  if (lowerUrl.includes('ticket') || lowerUrl.includes('service') ||
-      lowerUrl.includes('helpdesk') || lowerUrl.includes('support') ||
-      lowerUrl.includes('incident') || lowerUrl.includes('sr ') ||
-      lowerUrl.includes('sr%20') || lowerUrl.includes('service%20')) {
+  if (combined.includes('ticket') || combined.includes('service') ||
+      combined.includes('helpdesk') || combined.includes('support') ||
+      combined.includes('incident') || combined.includes('sr ') ||
+      combined.includes('sr%20') || combined.includes('service%20')) {
     return 'SERVICE_TICKETS';
   }
 
-  if (lowerUrl.includes('project') || lowerUrl.includes('pm ') || lowerUrl.includes('project%20')) {
-    return 'PROJECTS';
+  // Check for opportunities
+  if (combined.includes('opportunit') || combined.includes('sales') ||
+      combined.includes('pipeline') || combined.includes('opp ') ||
+      combined.includes('opp%20')) {
+    return 'OPPORTUNITIES';
   }
 
-  if (lowerUrl.includes('opportunit') || lowerUrl.includes('sales') || lowerUrl.includes('pipeline')) {
-    return 'OPPORTUNITIES';
+  // Check for projects
+  if (combined.includes('project') || combined.includes('pm ') || combined.includes('project%20')) {
+    return 'PROJECTS';
   }
 
   // Default to projects if unclear

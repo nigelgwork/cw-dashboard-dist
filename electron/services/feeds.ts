@@ -147,3 +147,20 @@ export function toggleFeedActive(feedId: number, isActive: boolean): void {
   const db = getDatabase();
   db.prepare('UPDATE atom_feeds SET is_active = ?, updated_at = datetime(\'now\') WHERE id = ?').run(isActive ? 1 : 0, feedId);
 }
+
+/**
+ * Update feed properties
+ */
+export function updateFeed(feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }): AtomFeed | null {
+  const db = getDatabase();
+  const feed = getFeedById(feedId);
+
+  if (!feed) return null;
+
+  const name = updates.name ?? feed.name;
+  const feedType = updates.feedType ?? feed.feedType;
+
+  db.prepare('UPDATE atom_feeds SET name = ?, feed_type = ?, updated_at = datetime(\'now\') WHERE id = ?').run(name, feedType, feedId);
+
+  return getFeedById(feedId);
+}

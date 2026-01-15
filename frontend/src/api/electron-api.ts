@@ -350,6 +350,11 @@ export const electronFeedsApi = {
     const api = getElectronAPI();
     return api.feeds.test(feedId);
   },
+
+  update: async (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }): Promise<AtomFeed | null> => {
+    const api = getElectronAPI();
+    return api.feeds.update(feedId, updates);
+  },
 };
 
 // ============================================

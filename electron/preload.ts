@@ -50,6 +50,7 @@ export interface ElectronAPI {
     importFromDialog: () => Promise<AtomFeed[]>;
     delete: (feedId: number) => Promise<void>;
     test: (feedId: number) => Promise<FeedTestResult>;
+    update: (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }) => Promise<AtomFeed | null>;
   };
 
   // Settings
@@ -303,6 +304,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     importFromDialog: () => ipcRenderer.invoke('feeds:importFromDialog'),
     delete: (feedId: number) => ipcRenderer.invoke('feeds:delete', feedId),
     test: (feedId: number) => ipcRenderer.invoke('feeds:test', feedId),
+    update: (feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' }) => ipcRenderer.invoke('feeds:update', feedId, updates),
   },
 
   // Settings
