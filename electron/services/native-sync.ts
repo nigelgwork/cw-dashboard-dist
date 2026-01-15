@@ -153,7 +153,7 @@ export async function syncProjects(
 
     const insertStmt = db.prepare(`
       INSERT INTO projects (external_id, client_name, project_name, budget, spent, hours_estimate, hours_remaining, status, is_active, notes, updated_at)
-      VALUES (@external_id, @client_name, @project_name, @budget, @spent, @hours_estimate, @hours_remaining, 'ACTIVE', 1, @notes, datetime('now'))
+      VALUES (@external_id, @client_name, @project_name, @budget, @spent, @hours_estimate, @hours_remaining, @status, @is_active, @notes, datetime('now'))
     `);
 
     const updateStmt = db.prepare(`
@@ -164,6 +164,8 @@ export async function syncProjects(
         spent = @spent,
         hours_estimate = @hours_estimate,
         hours_remaining = @hours_remaining,
+        status = @status,
+        is_active = @is_active,
         notes = @notes,
         updated_at = datetime('now')
       WHERE external_id = @external_id
@@ -192,6 +194,8 @@ export async function syncProjects(
             'spent',
             'hours_estimate',
             'hours_remaining',
+            'status',
+            'is_active',
             'notes',
           ]);
 
@@ -562,6 +566,19 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
   const clientName = cleanHtmlEntities(entry.Company2 || entry.CompanyName || entry.Company || entry.Client || '');
   const projectManager = cleanHtmlEntities(entry.Project_Manager3 || entry.ProjectManager || entry.PM || '');
 
+  // Status field - try various field names
+  const rawStatus = entry.Status || entry.ProjectStatus || entry.Project_Status ||
+                    entry.status_description || entry.StatusName || entry.Status_Name ||
+                    entry.Textbox37 || entry.Textbox38 || ''; // Textbox37/38 are common SSRS field names for status
+  const status = cleanHtmlEntities(rawStatus);
+
+  // Determine if active based on status
+  // Active statuses: "1. New", "2. In Progress", "3. Completed - Ready to Invoice", "4. On-Hold", "8. Re-Opened"
+  // Inactive statuses: "6. Completed", "7. Cancelled"
+  const lowerStatus = status.toLowerCase();
+  const isActive = !lowerStatus.includes('completed') && !lowerStatus.includes('cancelled') &&
+                   !lowerStatus.includes('closed') && lowerStatus !== '';
+
   // Financial fields
   const budget = parseNumber(entry.Quoted3 || entry.Budget || entry.QuotedAmount);
   const spent = parseNumber(entry.Actual_Cost || entry.ActualCost || entry.Spent);
@@ -589,6 +606,8 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
     spent: spent || null,
     hours_estimate: hoursEstimate,
     hours_remaining: hoursRemaining,
+    status: status || 'Unknown',
+    is_active: isActive ? 1 : 0,
     notes,
   };
 }
