@@ -26,6 +26,17 @@ const parsePMFromNotes = (notes: string | undefined): string | null => {
   return match ? match[1].trim() : null;
 };
 
+// Safely parse and format raw JSON data
+const formatRawData = (rawData: string | null | undefined): string => {
+  if (!rawData) return 'No raw data available - sync again to populate';
+  try {
+    return JSON.stringify(JSON.parse(rawData), null, 2);
+  } catch {
+    // If JSON parsing fails, show the raw string with error message
+    return `[Invalid JSON - displaying raw string]\n\n${rawData}`;
+  }
+};
+
 export default function FullPageView({ type, isPinned, togglePin }: FullPageViewProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -420,18 +431,26 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
                   <span className="text-xs text-gray-500">ID: {project.externalId}</span>
                 </div>
                 <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
-                  {project.rawData ? JSON.stringify(JSON.parse(project.rawData), null, 2) : 'No raw data available - sync again to populate'}
+                  {formatRawData(project.rawData)}
                 </pre>
+                {project.detailRawData && (
+                  <>
+                    <div className="text-xs text-purple-400 mt-3 mb-1 font-medium">Detail Data:</div>
+                    <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
+                      {formatRawData(project.detailRawData)}
+                    </pre>
+                  </>
+                )}
               </div>
             ))}
             {type === 'opportunities' && filteredOpportunities.map((opportunity) => (
               <div key={opportunity.id} className="bg-board-bg border border-board-border rounded p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-white">{opportunity.companyName} - {opportunity.opportunityName}</span>
-                  <span className="text-xs text-gray-500">ID: {opportunity.externalId}</span>
+                  <span className="text-xs text-gray-500">ID: {opportunity.id}</span>
                 </div>
                 <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
-                  {opportunity.rawData ? JSON.stringify(JSON.parse(opportunity.rawData), null, 2) : 'No raw data available - sync again to populate'}
+                  {formatRawData(opportunity.rawData)}
                 </pre>
               </div>
             ))}
@@ -439,10 +458,10 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
               <div key={ticket.id} className="bg-board-bg border border-board-border rounded p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-white">{ticket.companyName} - {ticket.summary}</span>
-                  <span className="text-xs text-gray-500">ID: {ticket.externalId}</span>
+                  <span className="text-xs text-gray-500">ID: {ticket.id}</span>
                 </div>
                 <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
-                  {ticket.rawData ? JSON.stringify(JSON.parse(ticket.rawData), null, 2) : 'No raw data available - sync again to populate'}
+                  {formatRawData(ticket.rawData)}
                 </pre>
               </div>
             ))}

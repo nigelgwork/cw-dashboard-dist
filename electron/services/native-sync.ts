@@ -104,13 +104,34 @@ export async function parseAtomFeed(xmlContent: string): Promise<AtomEntry[]> {
 
     const record: AtomEntry = {};
 
-    // Flatten all properties
+    // Flatten all properties - ensure all values are strings
     for (const [key, value] of Object.entries(props)) {
-      if (value && typeof value === 'object') {
+      if (value === null || value === undefined) {
+        record[key] = '';
+      } else if (Array.isArray(value)) {
+        // Handle arrays (xml2js creates these for repeated elements)
+        // Take first element's text content or join all values
+        if (value.length === 0) {
+          record[key] = '';
+        } else if (typeof value[0] === 'object' && value[0]._) {
+          record[key] = String(value[0]._);
+        } else if (typeof value[0] === 'string') {
+          record[key] = value[0];
+        } else {
+          // Fallback: stringify the array for debugging
+          record[key] = JSON.stringify(value);
+        }
+      } else if (typeof value === 'object') {
         // Handle complex value with _ for text content
-        record[key] = (value as { _?: string })._ || '';
+        const textContent = (value as { _?: string })._;
+        if (textContent !== undefined) {
+          record[key] = String(textContent);
+        } else {
+          // Fallback: stringify the object for debugging
+          record[key] = JSON.stringify(value);
+        }
       } else {
-        record[key] = String(value || '');
+        record[key] = String(value);
       }
     }
 

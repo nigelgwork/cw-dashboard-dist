@@ -126,10 +126,10 @@ export default function OpportunityCard({ opportunity, isPinned, onTogglePin, al
             </div>
           )}
 
-          {/* External ID */}
+          {/* ID - use internal database ID since SSRS report doesn't have Opp_RecID */}
           <div className="flex items-center gap-2">
             <Hash size={12} className="text-gray-500" />
-            <span className="text-xs text-gray-500">ID: {opportunity.externalId}</span>
+            <span className="text-xs text-gray-500">ID: {opportunity.id}</span>
           </div>
 
           {/* Updated timestamp */}
