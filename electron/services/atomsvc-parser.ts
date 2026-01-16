@@ -196,10 +196,11 @@ const STRIP_FILTER_PARAMETERS = [
   'My_Member_ID',
   'Language',
   'IncWrittenOff',
-  // Location filters (all feed types)
+  // Location/Division filters (all feed types)
   'Locations',
   'Location',
   'Division',
+  'Divisions',
   // Opportunity filters
   'Sales_Rep',
   'SalesRep',
@@ -630,7 +631,7 @@ const LOCATION_IDS: Record<string, string> = {
  * Different SSRS reports use different parameter formats:
  * - Projects: Locations=Adelaide (text name, plural param)
  * - Opportunities: Location=19 (numeric ID, singular param)
- * - Service Tickets: Location filter NOT supported (report has no Location param)
+ * - Service Tickets: Division=Adelaide (text name, singular param)
  *
  * @param url The feed URL
  * @param locations Array of location names to filter by
@@ -652,14 +653,11 @@ export function injectLocationFilter(url: string, locations: string[]): string {
 
     let locationParams: string[] = [];
 
-    // Service Tickets report does NOT support location filtering
-    // Injecting Location param causes HTTP 500 error
     if (reportPath.includes('service') || reportPath.includes('ticket')) {
-      console.log(`[AtomSvcParser] Service Tickets report - location filter not supported, skipping`);
-      return url;
-    }
-
-    if (reportPath.includes('opportunity')) {
+      // Service Tickets use "Division" param with text names
+      locationParams = locations.map(loc => `Division=${encodeURIComponent(loc)}`);
+      console.log(`[AtomSvcParser] Injecting service ticket divisions: ${locations.join(', ')}`);
+    } else if (reportPath.includes('opportunity')) {
       // Opportunities use numeric IDs with singular "Location" param
       const locationIds = locations
         .map(loc => LOCATION_IDS[loc])
