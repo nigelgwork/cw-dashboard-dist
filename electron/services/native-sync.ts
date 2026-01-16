@@ -801,7 +801,11 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
   const externalId = entry.ID || entry.ProjectID || entry.Project_ID || entry.Id || '';
   const projectName = cleanHtmlEntities(entry.Name1 || entry.ProjectName || entry.Project_Name || entry.Name || '');
   const clientName = cleanHtmlEntities(entry.Company2 || entry.CompanyName || entry.Company || entry.Client || '');
-  const projectManager = cleanHtmlEntities(entry.Project_Manager3 || entry.ProjectManager || entry.PM || '');
+  // Project Manager field often contains "Project Manager: Name" - strip the prefix
+  let projectManager = cleanHtmlEntities(entry.Project_Manager3 || entry.ProjectManager || entry.PM || '');
+  if (projectManager.toLowerCase().startsWith('project manager:')) {
+    projectManager = projectManager.substring('project manager:'.length).trim();
+  }
 
   // Status field - try various field names
   const rawStatus = entry.Status || entry.ProjectStatus || entry.Project_Status ||

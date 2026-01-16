@@ -6,7 +6,6 @@ import {
   formatHours,
   formatPercent,
   formatDate,
-  formatNotes,
   getProjectStatusStyle,
   getProjectStatusColor,
 } from '../../utils/formatting';
@@ -143,13 +142,6 @@ export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpa
             </div>
           )}
 
-          {/* Notes */}
-          {project.notes && (
-            <div className="text-xs text-gray-400">
-              <span className="text-gray-500">Notes: </span>
-              {formatNotes(project.notes)}
-            </div>
-          )}
 
           {/* Extended Detail Fields */}
           {detailFields.length > 0 && (
