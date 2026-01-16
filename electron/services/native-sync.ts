@@ -799,28 +799,54 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
   const actualCost = parseNumber(entry.Actual_Cost || entry.ActualCost);
 
   // Hours fields - try to find actual hours data from the report
-  // Common field names: Estimated_Hours, EstimatedHours, Hours_Budget, HoursBudget, Budget_Hours
+  // Try many variations of field names that SSRS might use
   let hoursEstimate = parseNumber(
-    entry.Estimated_Hours || entry.EstimatedHours || entry.Hours_Budget || entry.HoursBudget ||
-    entry.Budget_Hours || entry.BudgetHours || entry.Total_Hours || entry.TotalHours ||
-    entry.Hours_Estimate || entry.HoursEstimate
+    entry.Estimated_Hours || entry.Estimated_Hours1 || entry.EstimatedHours ||
+    entry.Hours_Budget || entry.HoursBudget || entry.Budget_Hours || entry.BudgetHours ||
+    entry.Total_Hours || entry.TotalHours || entry.Hours_Estimate || entry.HoursEstimate ||
+    entry.Est_Hours || entry.EstHours || entry.Est_Hrs || entry.EstHrs ||
+    entry.Budgeted_Hours || entry.BudgetedHours || entry.Project_Hours || entry.ProjectHours ||
+    entry.Scheduled_Hours || entry.ScheduledHours || entry.Planned_Hours || entry.PlannedHours
   );
 
   // Actual hours used - try various field names
   let hoursActual = parseNumber(
-    entry.Actual_Hours || entry.ActualHours || entry.Hours_Actual || entry.HoursActual ||
-    entry.Hours_Used || entry.HoursUsed || entry.Worked_Hours || entry.WorkedHours
+    entry.Actual_Hours || entry.Actual_Hours1 || entry.ActualHours ||
+    entry.Hours_Actual || entry.HoursActual || entry.Hours_Used || entry.HoursUsed ||
+    entry.Worked_Hours || entry.WorkedHours || entry.Used_Hours || entry.UsedHours ||
+    entry.Logged_Hours || entry.LoggedHours || entry.Time_Actual || entry.TimeActual
   );
 
   // Hours remaining - try to find it directly or calculate it
   let hoursRemaining = parseNumber(
-    entry.Hours_Remaining || entry.HoursRemaining || entry.Remaining_Hours || entry.RemainingHours
+    entry.Hours_Remaining || entry.HoursRemaining || entry.Remaining_Hours || entry.RemainingHours ||
+    entry.Hours_Left || entry.HoursLeft || entry.Left_Hours || entry.LeftHours
   );
+
+  // Log hours fields for debugging (first entry only)
+  if (externalId === '2399' || (!hoursEstimate && budget)) {
+    console.log(`[NativeSync] Project ${externalId} hours debug:`, {
+      hoursEstimate,
+      hoursActual,
+      hoursRemaining,
+      budget,
+      usingFallback: !hoursEstimate && budget && budget > 0,
+      // Log any field that might contain hours
+      possibleHoursFields: Object.entries(entry)
+        .filter(([k, v]) => {
+          const key = k.toLowerCase();
+          const val = parseNumber(v);
+          return (key.includes('hour') || key.includes('hrs') || key.includes('time')) && val !== null;
+        })
+        .map(([k, v]) => `${k}=${v}`)
+    });
+  }
 
   // If we don't have hours from the data, try to calculate from cost
   // (only as fallback, since this is less accurate)
   if (!hoursEstimate && budget && budget > 0) {
     // Fallback: estimate hours from budget at $125/hour
+    console.log(`[NativeSync] Project ${externalId}: No hours field found, using budget fallback (${budget} / 125 = ${Math.round((budget / 125) * 100) / 100}h)`);
     hoursEstimate = Math.round((budget / 125) * 100) / 100;
   }
 

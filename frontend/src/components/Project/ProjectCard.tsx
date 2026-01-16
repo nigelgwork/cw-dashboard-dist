@@ -121,7 +121,7 @@ export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpa
           <div className="flex items-center gap-1">
             <Clock size={11} className="text-gray-500" />
             <span className="text-[11px] text-gray-400">
-              {formatHours(project.hoursActual ?? 0)}h / {formatHours(project.hoursEstimate)}h
+              {formatHours(project.hoursActual ?? 0)} / {formatHours(project.hoursEstimate)}
             </span>
           </div>
         )}
