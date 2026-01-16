@@ -185,6 +185,16 @@ async function runMigration(version: number): Promise<void> {
         console.log('detail_raw_data column may already exist:', e);
       }
       break;
+    case 6:
+      // Add hours_actual column to projects table
+      console.log('Adding hours_actual column to projects table');
+      try {
+        db.exec('ALTER TABLE projects ADD COLUMN hours_actual REAL');
+      } catch (e) {
+        // Column might already exist
+        console.log('hours_actual column may already exist:', e);
+      }
+      break;
     default:
       console.log(`No migration needed for version ${version}`);
   }

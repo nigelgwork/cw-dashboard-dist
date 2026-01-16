@@ -5,6 +5,61 @@
  * Field names come from SSRS report tablixes in format: Tablix##_FieldName
  */
 
+/**
+ * Allowed field base names - only these fields will be shown in the UI
+ * This filters out all the Textbox## and other unmapped fields
+ */
+const ALLOWED_FIELD_NAMES = new Set([
+  // Overview
+  'Company', 'Name', 'Status', 'End_Date', 'EndDate',
+  // Financial Summary
+  'Quoted', 'Estimated_Cost', 'EstimatedCost', 'Budget_Margin', 'BudgetMargin',
+  'Actual_Cost', 'ActualCost', 'Pct_Cost_Used', 'PctCostUsed',
+  'Committed_Cost', 'CommittedCost', 'Billable', 'Invoiced', 'WIP', 'WIP21',
+  'CIA', 'CIA_Remaining', 'Pct_Invoiced', 'PctInvoiced',
+  'Current_Margin', 'CurrentMargin', 'Variance',
+  'Standing_Margin', 'StandingMargin', 'Standing_Profit', 'StandingProfit',
+  'Time_Billable', 'TimeBillable', 'Products_Billable', 'ProductsBillable',
+  'Expenses_Billable', 'ExpensesBillable',
+  // Financial Metrics (EVM)
+  'Total_Budget', 'TotalBudget', 'Pct_Complete', 'PctComplete', 'Percent_Complete',
+  'Planned_Value', 'PlannedValue', 'PV',
+  'Earned_Value', 'EarnedValue', 'EV',
+  'Actual_Cost_AC', 'AC',
+  'Schedule_Variance', 'ScheduleVariance', 'SV',
+  'Schedule_Performance_Index', 'SchedulePerformanceIndex', 'SPI',
+  'Cost_Variance', 'CostVariance', 'CV',
+  'Cost_Price_Index', 'CostPriceIndex', 'CPI',
+  'Estimate_at_Completion', 'EstimateAtCompletion', 'EAC',
+  'Estimate_to_Complete', 'EstimateToComplete', 'ETC',
+  'Variance_at_Completion', 'VarianceAtCompletion', 'VAC',
+  'To_Complete_Performance_Index', 'ToCompletePerformanceIndex', 'TCPI',
+  // Hours Summary
+  'Estimated_Hours', 'EstimatedHours', 'Hours_Budget', 'HoursBudget',
+  'Actual_Hours', 'ActualHours', 'Hours_Actual', 'HoursActual',
+  'Hours_Remaining', 'HoursRemaining',
+  'Pct_Used', 'PctUsed', 'Avg_Hr_Cost', 'AvgHrCost', 'Average_Hour_Cost',
+  // Cost Summary
+  'Estimated_Costs', 'EstimatedCosts',
+  // Products
+  'Received', 'PO_Number', 'PONumber', 'Item_Id', 'ItemId',
+  'Item_Desc', 'ItemDesc', 'Date_Received', 'DateReceived',
+  'Quantity', 'Quantity_Received', 'QuantityReceived',
+  'Unit_Cost', 'UnitCost', 'Qty_Picked', 'QtyPicked',
+  'Total_Cost', 'TotalCost', 'Balance_to_Receive', 'BalanceToReceive',
+  'Billable_Amt', 'BillableAmt',
+  // Expense
+  'Expense_Type', 'ExpenseType', 'Date_Expense', 'DateExpense',
+  'Note', 'Notes', 'Billable_Flag', 'BillableFlag',
+  'Expense_Cost', 'ExpenseCost', 'Non_Billable_Amt', 'NonBillableAmt',
+  // Invoices
+  'Date_Invoice', 'DateInvoice', 'Invoice_Number', 'InvoiceNumber',
+  'Project_ID', 'ProjectID', 'AGR_Header_Rec_ID', 'AGRHeaderRecID',
+  'Apply_To', 'ApplyTo', 'Invoice_Amount', 'InvoiceAmount',
+  'Service_Amount', 'ServiceAmount', 'Hardware_Amount', 'HardwareAmount',
+  'Down_Payment', 'DownPayment', 'Due_Date', 'DueDate', 'Paid_Flag', 'PaidFlag',
+]);
+
 // Known field mappings - keys are the base field names (without Tablix prefix)
 const KNOWN_FIELD_MAPPINGS: Record<string, string> = {
   // Overview fields
@@ -341,6 +396,23 @@ export function getFieldCategory(rawName: string): string {
     return TABLIX_CATEGORIES[tablix] || tablix;
   }
   return 'Other';
+}
+
+/**
+ * Check if a field should be shown in the UI
+ * Only fields with known mappings are allowed
+ */
+export function isAllowedField(rawName: string): boolean {
+  const { baseName } = parseFieldName(rawName);
+  return ALLOWED_FIELD_NAMES.has(baseName);
+}
+
+/**
+ * Filter a list of fields to only include allowed fields
+ * This removes Textbox## and other unmapped fields
+ */
+export function filterAllowedFields(fieldNames: string[]): string[] {
+  return fieldNames.filter(isAllowedField);
 }
 
 /**

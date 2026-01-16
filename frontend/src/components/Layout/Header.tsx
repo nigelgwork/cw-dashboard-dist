@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, LayoutDashboard, FolderKanban, TrendingUp, Ticket, Pin, AlertCircle, Clock, Database, Settings } from 'lucide-react';
-import { sync, isElectron } from '../../api';
+import { sync, isElectron, events } from '../../api';
 
 interface SyncStatus {
   last_sync: string | null;
@@ -87,9 +87,19 @@ export default function Header({ activeView, onViewChange, pinnedCount = 0 }: He
     fetchSyncStatus();
     const versionInterval = isElectronApp ? null : setInterval(checkVersion, 30000);
     const syncInterval = setInterval(fetchSyncStatus, 60000);
+
+    // In Electron, also listen for sync:completed events
+    let unsubCompleted: (() => void) | undefined;
+    if (isElectronApp && events) {
+      unsubCompleted = events.on('sync:completed', () => {
+        fetchSyncStatus();
+      });
+    }
+
     return () => {
       if (versionInterval) clearInterval(versionInterval);
       clearInterval(syncInterval);
+      if (unsubCompleted) unsubCompleted();
     };
   }, [checkVersion, fetchSyncStatus, isElectronApp]);
 

@@ -31,6 +31,7 @@ interface Project {
   budget: number | null;
   spent: number | null;
   hoursEstimate: number | null;
+  hoursActual: number | null;
   hoursRemaining: number | null;
   status: string;
   isActive: boolean;

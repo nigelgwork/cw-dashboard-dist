@@ -116,6 +116,7 @@ export interface Project {
   budget?: number;
   spent?: number;
   hoursEstimate?: number;
+  hoursActual?: number;
   hoursRemaining?: number;
   status: string;
   isActive: boolean;
@@ -160,6 +161,7 @@ export interface ProjectAPI {
   budget?: number;
   spent?: number;
   hours_estimate?: number;
+  hours_actual?: number;
   hours_remaining?: number;
   status: string;
   is_active: boolean;
@@ -199,6 +201,7 @@ export function transformProject(api: ProjectAPI): Project {
     budget: api.budget,
     spent: api.spent,
     hoursEstimate: api.hours_estimate,
+    hoursActual: api.hours_actual,
     hoursRemaining: api.hours_remaining,
     status: api.status,
     isActive: api.is_active,

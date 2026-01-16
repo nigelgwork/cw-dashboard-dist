@@ -117,10 +117,12 @@ export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpa
             {formatCurrency(project.spent)} / {formatCurrency(project.budget)}
           </span>
         </div>
-        {project.hoursRemaining !== undefined && project.hoursRemaining !== null && (
+        {project.hoursEstimate !== undefined && project.hoursEstimate !== null && (
           <div className="flex items-center gap-1">
             <Clock size={11} className="text-gray-500" />
-            <span className="text-[11px] text-gray-400">{formatHours(project.hoursRemaining)} left</span>
+            <span className="text-[11px] text-gray-400">
+              {formatHours(project.hoursActual ?? 0)}h / {formatHours(project.hoursEstimate)}h
+            </span>
           </div>
         )}
       </div>
@@ -133,7 +135,10 @@ export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpa
             <div className="flex items-center gap-2">
               <Clock size={12} className="text-gray-500" />
               <span className="text-xs text-gray-400">
-                Hours: {formatHours(project.hoursRemaining)} remaining of {formatHours(project.hoursEstimate)} estimate
+                Hours: {formatHours(project.hoursActual ?? 0)} used of {formatHours(project.hoursEstimate)} available
+                {project.hoursRemaining !== undefined && project.hoursRemaining > 0 && (
+                  <span className="text-gray-500"> ({formatHours(project.hoursRemaining)} remaining)</span>
+                )}
               </span>
             </div>
           )}

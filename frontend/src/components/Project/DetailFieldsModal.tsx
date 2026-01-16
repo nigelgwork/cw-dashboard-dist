@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Loader2, CheckCircle, FileText } from 'lucide-react';
 import { electronProjectsApi, electronSettingsApi, isElectron } from '../../api/electron-api';
 import { useToast } from '../../context/ToastContext';
-import { getFieldDisplayNameWithCategory, groupFieldsByCategory } from '../../utils/detailFieldNames';
+import { getFieldDisplayNameWithCategory, groupFieldsByCategory, filterAllowedFields } from '../../utils/detailFieldNames';
 
 // Setting key for visible detail fields
 const PROJECT_DETAIL_VISIBLE_FIELDS_KEY = 'project_detail_visible_fields';
@@ -27,8 +27,9 @@ export default function DetailFieldsModal({ isOpen, onClose, onSave }: DetailFie
     const loadFields = async () => {
       setLoading(true);
       try {
-        // Load available fields from projects
-        const fields = await electronProjectsApi.getAvailableDetailFields();
+        // Load available fields from projects and filter to only allowed fields
+        const allFields = await electronProjectsApi.getAvailableDetailFields();
+        const fields = filterAllowedFields(allFields);
         setAvailableFields(fields);
 
         // Load currently selected fields from settings

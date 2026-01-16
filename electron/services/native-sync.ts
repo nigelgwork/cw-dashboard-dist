@@ -305,8 +305,8 @@ export async function syncProjects(
     let unchanged = 0;
 
     const insertStmt = db.prepare(`
-      INSERT INTO projects (external_id, client_name, project_name, budget, spent, hours_estimate, hours_remaining, status, is_active, notes, raw_data, detail_raw_data, updated_at)
-      VALUES (@external_id, @client_name, @project_name, @budget, @spent, @hours_estimate, @hours_remaining, @status, @is_active, @notes, @raw_data, @detail_raw_data, datetime('now'))
+      INSERT INTO projects (external_id, client_name, project_name, budget, spent, hours_estimate, hours_actual, hours_remaining, status, is_active, notes, raw_data, detail_raw_data, updated_at)
+      VALUES (@external_id, @client_name, @project_name, @budget, @spent, @hours_estimate, @hours_actual, @hours_remaining, @status, @is_active, @notes, @raw_data, @detail_raw_data, datetime('now'))
     `);
 
     const updateStmt = db.prepare(`
@@ -316,6 +316,7 @@ export async function syncProjects(
         budget = @budget,
         spent = @spent,
         hours_estimate = @hours_estimate,
+        hours_actual = @hours_actual,
         hours_remaining = @hours_remaining,
         status = @status,
         is_active = @is_active,
@@ -797,12 +798,45 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
   const estimatedCost = parseNumber(entry.Estimated_Cost || entry.EstimatedCost);
   const actualCost = parseNumber(entry.Actual_Cost || entry.ActualCost);
 
-  // Calculate hours remaining
-  const remainingCost = (estimatedCost || 0) - (actualCost || 0);
-  const hoursRemaining = remainingCost > 0 ? Math.round((remainingCost / 125) * 100) / 100 : 0;
+  // Hours fields - try to find actual hours data from the report
+  // Common field names: Estimated_Hours, EstimatedHours, Hours_Budget, HoursBudget, Budget_Hours
+  let hoursEstimate = parseNumber(
+    entry.Estimated_Hours || entry.EstimatedHours || entry.Hours_Budget || entry.HoursBudget ||
+    entry.Budget_Hours || entry.BudgetHours || entry.Total_Hours || entry.TotalHours ||
+    entry.Hours_Estimate || entry.HoursEstimate
+  );
 
-  // Hours estimate from budget
-  const hoursEstimate = budget && budget > 0 ? Math.round((budget / 125) * 100) / 100 : null;
+  // Actual hours used - try various field names
+  let hoursActual = parseNumber(
+    entry.Actual_Hours || entry.ActualHours || entry.Hours_Actual || entry.HoursActual ||
+    entry.Hours_Used || entry.HoursUsed || entry.Worked_Hours || entry.WorkedHours
+  );
+
+  // Hours remaining - try to find it directly or calculate it
+  let hoursRemaining = parseNumber(
+    entry.Hours_Remaining || entry.HoursRemaining || entry.Remaining_Hours || entry.RemainingHours
+  );
+
+  // If we don't have hours from the data, try to calculate from cost
+  // (only as fallback, since this is less accurate)
+  if (!hoursEstimate && budget && budget > 0) {
+    // Fallback: estimate hours from budget at $125/hour
+    hoursEstimate = Math.round((budget / 125) * 100) / 100;
+  }
+
+  if (!hoursActual && actualCost && actualCost > 0) {
+    // Fallback: estimate actual hours from cost at $125/hour
+    hoursActual = Math.round((actualCost / 125) * 100) / 100;
+  }
+
+  if (!hoursRemaining && hoursEstimate && hoursActual !== null && hoursActual !== undefined) {
+    // Calculate remaining from estimate - actual
+    hoursRemaining = Math.max(0, hoursEstimate - hoursActual);
+  } else if (!hoursRemaining && estimatedCost && actualCost !== null && actualCost !== undefined) {
+    // Fallback: calculate from cost difference
+    const remainingCost = Math.max(0, estimatedCost - actualCost);
+    hoursRemaining = Math.round((remainingCost / 125) * 100) / 100;
+  }
 
   // Build notes with WIP and completion percentage
   const wip = entry.WIP1 || entry.WIP || '';
@@ -819,8 +853,9 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
     project_name: projectName || null,
     budget: budget || null,
     spent: spent || null,
-    hours_estimate: hoursEstimate,
-    hours_remaining: hoursRemaining,
+    hours_estimate: hoursEstimate || null,
+    hours_actual: hoursActual || null,
+    hours_remaining: hoursRemaining || 0,
     status: status || 'Unknown',
     is_active: isActive ? 1 : 0,
     notes,
@@ -853,14 +888,20 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
     entry.Account || entry.Account_Name || entry.Client || entry.Textbox5 || entry.Textbox6 || ''
   );
 
+  // Log all available fields for the first entry to help debug field mapping
+  if (index === 0) {
+    console.log('[NativeSync] Opportunity entry fields:', Object.keys(entry).join(', '));
+    // Log short values (non-list fields) to help identify correct mappings
+    const shortFields = Object.entries(entry)
+      .filter(([, v]) => String(v).length < 100)
+      .map(([k, v]) => `${k}="${String(v).substring(0, 50)}"`);
+    console.log('[NativeSync] Sample values:', shortFields.slice(0, 15).join(', '));
+  }
+
   // If no ID found, generate one from other unique fields
   if (!externalId) {
-    // Log available fields for debugging (only first entry)
     if (index === 0) {
-      console.warn('[NativeSync] Opportunity missing ID! Available fields:', Object.keys(entry).join(', '));
-      // Log first few values to help identify ID field
-      const sampleFields = Object.entries(entry).slice(0, 10).map(([k, v]) => `${k}="${v}"`).join(', ');
-      console.warn('[NativeSync] Sample values:', sampleFields);
+      console.warn('[NativeSync] Opportunity missing ID! Will generate fallback.');
     }
 
     // Generate unique ID from combination of fields
@@ -878,14 +919,55 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
   }
 
   // Sales rep - various field names used
-  const salesRep = cleanHtmlEntities(
-    entry.Sales_Rep || entry.SalesRep || entry.Rep || entry.Owner ||
-    entry.Primary_Sales_Rep || entry.PrimarySalesRep || entry.Member_Name || ''
-  );
+  // Be careful to check each field individually to avoid picking up a field with all employees
+  let salesRep = '';
+  const salesRepCandidates = [
+    entry.Sales_Rep,
+    entry.SalesRep,
+    entry.Primary_Sales_Rep,
+    entry.PrimarySalesRep,
+    entry.Rep,
+    entry.Owner,
+    entry.Assigned_To,
+    entry.AssignedTo,
+  ];
+
+  for (const candidate of salesRepCandidates) {
+    if (candidate) {
+      const cleaned = cleanHtmlEntities(String(candidate));
+      // Sales rep should be a single name with no commas
+      const commaCount = (cleaned.match(/,/g) || []).length;
+      if (commaCount === 0 && cleaned.length < 100) {
+        salesRep = cleaned;
+        break;
+      }
+    }
+  }
 
   // Stage - ConnectWise uses various stage/status fields
-  const stage = entry.Sales_Stage || entry.SalesStage || entry.Stage ||
-                entry.Status || entry.Opp_Status || entry.Status_Description || '';
+  // Apply same validation as sales rep to avoid picking up list fields
+  let stage = '';
+  const stageCandidates = [
+    entry.Sales_Stage,
+    entry.SalesStage,
+    entry.Stage,
+    entry.Opp_Stage,
+    entry.Status,
+    entry.Opp_Status,
+    entry.Status_Description,
+  ];
+
+  for (const candidate of stageCandidates) {
+    if (candidate) {
+      const cleaned = cleanHtmlEntities(String(candidate));
+      // Stage should be a short single value, not a list
+      const commaCount = (cleaned.match(/,/g) || []).length;
+      if (commaCount === 0 && cleaned.length < 100) {
+        stage = cleaned;
+        break;
+      }
+    }
+  }
 
   // Expected revenue - try various field names
   const expectedRevenue = parseNumber(

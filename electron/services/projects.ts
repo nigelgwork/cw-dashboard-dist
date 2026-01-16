@@ -9,6 +9,7 @@ export interface Project {
   budget: number | null;
   spent: number | null;
   hoursEstimate: number | null;
+  hoursActual: number | null;
   hoursRemaining: number | null;
   status: string;
   isActive: boolean;
@@ -44,6 +45,7 @@ function transformRow(row: ProjectRow): Project {
     budget: row.budget,
     spent: row.spent,
     hoursEstimate: row.hours_estimate,
+    hoursActual: row.hours_actual,
     hoursRemaining: row.hours_remaining,
     status: row.status,
     isActive: row.is_active === 1,
