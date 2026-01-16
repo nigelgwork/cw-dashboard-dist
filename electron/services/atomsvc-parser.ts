@@ -648,12 +648,6 @@ export function injectLocationFilter(url: string, locations: string[]): string {
     // Detect report type from path
     const reportPath = decodeURIComponent(queryString.split('&')[0] || '').toLowerCase();
 
-    // Service Tickets don't support location filtering
-    if (reportPath.includes('service') || reportPath.includes('ticket')) {
-      console.log(`[AtomSvcParser] Skipping location filter for service tickets (not supported)`);
-      return url;
-    }
-
     let locationParams: string[] = [];
 
     if (reportPath.includes('opportunity')) {
@@ -669,6 +663,10 @@ export function injectLocationFilter(url: string, locations: string[]): string {
 
       locationParams = locationIds.map(id => `Location=${id}`);
       console.log(`[AtomSvcParser] Injecting opportunity location IDs: ${locationIds.join(', ')}`);
+    } else if (reportPath.includes('service') || reportPath.includes('ticket')) {
+      // Service Tickets use text names with singular "Location" param
+      locationParams = locations.map(loc => `Location=${encodeURIComponent(loc)}`);
+      console.log(`[AtomSvcParser] Injecting service ticket locations: ${locations.join(', ')}`);
     } else {
       // Projects use text names with plural "Locations" param
       locationParams = locations.map(loc => `Locations=${encodeURIComponent(loc)}`);
