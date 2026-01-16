@@ -359,9 +359,12 @@ export async function syncProjects(
 
               // Extract hours from detail feed (Tablix15 has Hours_Budget, Hours_Actual)
               const fields = detail.allFields as Record<string, string | number | undefined>;
-              const detailHoursEstimate = parseNumber(fields.Hours_Budget ?? fields.HoursBudget);
-              const detailHoursActual = parseNumber(fields.Hours_Actual ?? fields.HoursActual);
-              const detailHoursRemaining = parseNumber(fields.Textbox319 ?? fields.Hours_Remaining ?? fields.HoursRemaining);
+              // Helper to convert value to string for parseNumber
+              const toStr = (v: string | number | undefined): string | undefined =>
+                v === undefined ? undefined : String(v);
+              const detailHoursEstimate = parseNumber(toStr(fields.Hours_Budget ?? fields.HoursBudget));
+              const detailHoursActual = parseNumber(toStr(fields.Hours_Actual ?? fields.HoursActual));
+              const detailHoursRemaining = parseNumber(toStr(fields.Textbox319 ?? fields.Hours_Remaining ?? fields.HoursRemaining));
 
               // Use detail hours if available (they're more accurate than budget-based calculation)
               if (detailHoursEstimate !== null) {
