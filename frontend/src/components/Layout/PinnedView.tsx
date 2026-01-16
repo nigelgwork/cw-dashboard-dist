@@ -134,7 +134,7 @@ export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinned
               <h2 className="text-lg font-semibold text-white">Projects</h2>
               <span className="text-sm text-gray-500">({projects.length})</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3">
               {projects.map((project) => (
                 <ProjectCard
                   key={project.id}
@@ -156,7 +156,7 @@ export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinned
               <h2 className="text-lg font-semibold text-white">Opportunities</h2>
               <span className="text-sm text-gray-500">({opportunities.length})</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3">
               {opportunities.map((opportunity) => (
                 <OpportunityCard
                   key={opportunity.id}
@@ -177,7 +177,7 @@ export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinned
               <h2 className="text-lg font-semibold text-white">Service Tickets</h2>
               <span className="text-sm text-gray-500">({serviceTickets.length})</span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3">
               {serviceTickets.map((ticket) => (
                 <ServiceTicketCard
                   key={ticket.id}

@@ -871,21 +871,26 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
 function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, unknown> {
   // Try common field names - SSRS uses various naming conventions
   // ConnectWise typically uses Opp_RecID as the unique identifier
-  let externalId = entry.Opp_RecID || entry.OppRecID || entry.Opportunity_RecID ||
-                   entry.ID || entry.OpportunityID || entry.Opportunity_ID || entry.Id ||
-                   entry.Opp_ID || entry.OppID || entry.RecID ||
-                   entry.Textbox1 || entry.Textbox2 || ''; // SSRS sometimes puts ID in Textbox fields
+  // Also try numbered fields like ID1, Opp_RecID1, etc. which SSRS often generates
+  let externalId = entry.Opp_RecID || entry.Opp_RecID1 || entry.OppRecID ||
+                   entry.Opportunity_RecID || entry.OpportunityRecID ||
+                   entry.ID || entry.ID1 || entry.OpportunityID || entry.Opportunity_ID ||
+                   entry.Id || entry.Opp_ID || entry.OppID || entry.RecID || entry.RecId ||
+                   entry.opp_recid || entry.opportunity_id || // lowercase variants
+                   '';
 
-  // Opportunity name - try various field names
+  // Opportunity name - try various field names including numbered SSRS fields
   const opportunityName = cleanHtmlEntities(
-    entry.Name || entry.Opp_Name || entry.OpportunityName || entry.Opportunity_Name ||
-    entry.Description || entry.Opp_Description || entry.Textbox3 || entry.Textbox4 || ''
+    entry.Name || entry.Name1 || entry.Opp_Name || entry.OppName ||
+    entry.OpportunityName || entry.Opportunity_Name || entry.Opportunity ||
+    entry.Description || entry.Opp_Description || entry.Summary || ''
   );
 
-  // Company name - SSRS often uses Company_Name with underscore
+  // Company name - SSRS often uses Company_Name with underscore or numbered fields
   const companyName = cleanHtmlEntities(
-    entry.Company_Name || entry.Company || entry.CompanyName ||
-    entry.Account || entry.Account_Name || entry.Client || entry.Textbox5 || entry.Textbox6 || ''
+    entry.Company_Name || entry.Company_Name1 || entry.Company || entry.Company1 ||
+    entry.CompanyName || entry.Account || entry.Account_Name || entry.AccountName ||
+    entry.Client || entry.ClientName || entry.Customer || ''
   );
 
   // Log all available fields for the first entry to help debug field mapping
@@ -923,13 +928,25 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
   let salesRep = '';
   const salesRepCandidates = [
     entry.Sales_Rep,
+    entry.Sales_Rep1,
     entry.SalesRep,
     entry.Primary_Sales_Rep,
+    entry.Primary_Rep,
     entry.PrimarySalesRep,
+    entry.PrimaryRep,
     entry.Rep,
+    entry.Rep1,
     entry.Owner,
+    entry.Owner1,
     entry.Assigned_To,
     entry.AssignedTo,
+    entry.Member,
+    entry.Member1,
+    entry.Member_Name,
+    entry.MemberName,
+    entry.SalesPerson,
+    entry.Sales_Person,
+    entry.Salesperson,
   ];
 
   for (const candidate of salesRepCandidates) {
@@ -937,7 +954,7 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
       const cleaned = cleanHtmlEntities(String(candidate));
       // Sales rep should be a single name with no commas
       const commaCount = (cleaned.match(/,/g) || []).length;
-      if (commaCount === 0 && cleaned.length < 100) {
+      if (commaCount === 0 && cleaned.length < 100 && cleaned.length > 0) {
         salesRep = cleaned;
         break;
       }
@@ -975,14 +992,20 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
     entry.Amount || entry.Opp_Amount || entry.Total || entry.Value
   );
 
-  // Close date
-  const closeDate = entry.Expected_Close || entry.ExpectedClose || entry.CloseDate ||
-                    entry.Close_Date || entry.Closed_Date || entry.Exp_Close || null;
+  // Close date - try many variations
+  const closeDate = entry.Expected_Close || entry.Expected_Close1 || entry.ExpectedClose ||
+                    entry.CloseDate || entry.Close_Date || entry.Close_Date1 ||
+                    entry.Closed_Date || entry.ClosedDate || entry.Exp_Close || entry.ExpClose ||
+                    entry.Est_Close || entry.EstClose || entry.Target_Close || entry.TargetClose ||
+                    entry.Forecast_Close || entry.ForecastClose || entry.Due_Date || entry.DueDate ||
+                    null;
 
-  // Probability
+  // Probability - try many variations including percentage fields
   const probability = parseNumber(
-    entry.Probability || entry.Prob || entry.Win_Probability ||
-    entry.WinProbability || entry.Opp_Probability
+    entry.Probability || entry.Probability1 || entry.Prob || entry.Prob1 ||
+    entry.Win_Probability || entry.WinProbability || entry.Win_Prob || entry.WinProb ||
+    entry.Opp_Probability || entry.OppProbability ||
+    entry.Percent || entry.Pct || entry.Confidence || entry.Win_Rate || entry.WinRate
   );
 
   // Store raw data for debugging
