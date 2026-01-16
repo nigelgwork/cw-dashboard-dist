@@ -358,10 +358,10 @@ export async function syncProjects(
               }
 
               // Extract hours from detail feed (Tablix15 has Hours_Budget, Hours_Actual)
-              const fields = detail.allFields;
-              const detailHoursEstimate = parseNumber(fields.Hours_Budget || fields.HoursBudget);
-              const detailHoursActual = parseNumber(fields.Hours_Actual || fields.HoursActual);
-              const detailHoursRemaining = parseNumber(fields.Textbox319 || fields.Hours_Remaining || fields.HoursRemaining);
+              const fields = detail.allFields as Record<string, string | number | undefined>;
+              const detailHoursEstimate = parseNumber(fields.Hours_Budget ?? fields.HoursBudget);
+              const detailHoursActual = parseNumber(fields.Hours_Actual ?? fields.HoursActual);
+              const detailHoursRemaining = parseNumber(fields.Textbox319 ?? fields.Hours_Remaining ?? fields.HoursRemaining);
 
               // Use detail hours if available (they're more accurate than budget-based calculation)
               if (detailHoursEstimate !== null) {
@@ -974,11 +974,11 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
 
   // Sales rep - various field names used
   // Be careful to check each field individually to avoid picking up a field with all employees
+  // IMPORTANT: Sales_Rep_1 (with underscore) is the actual sales rep, Sales_Rep is a list of all employees
   let salesRep = '';
   const salesRepCandidates = [
-    entry.Sales_Rep,
-    entry.Sales_Rep1,
-    entry.SalesRep,
+    entry.Sales_Rep_1,    // Primary field - actual sales rep (e.g., "Ben Jarman")
+    entry.SalesRep1,      // Alternative without underscore
     entry.Primary_Sales_Rep,
     entry.Primary_Rep,
     entry.PrimarySalesRep,
@@ -996,6 +996,9 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
     entry.SalesPerson,
     entry.Sales_Person,
     entry.Salesperson,
+    // Sales_Rep comes last as it often contains a list of all employees
+    entry.Sales_Rep,
+    entry.SalesRep,
   ];
 
   for (const candidate of salesRepCandidates) {
@@ -1042,7 +1045,9 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
   );
 
   // Close date - try many variations
-  const closeDate = entry.Expected_Close || entry.Expected_Close1 || entry.ExpectedClose ||
+  // Primary field is Expected_Close_Date from SSRS Opportunity List report
+  const closeDate = entry.Expected_Close_Date || entry.ExpectedCloseDate ||
+                    entry.Expected_Close || entry.Expected_Close1 || entry.ExpectedClose ||
                     entry.CloseDate || entry.Close_Date || entry.Close_Date1 ||
                     entry.Closed_Date || entry.ClosedDate || entry.Exp_Close || entry.ExpClose ||
                     entry.Est_Close || entry.EstClose || entry.Target_Close || entry.TargetClose ||
