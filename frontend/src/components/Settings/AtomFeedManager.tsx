@@ -775,35 +775,28 @@ export default function AtomFeedManager() {
             These pre-configured templates work with your SSRS reports. Import one to quickly set up a feed.
           </p>
 
-          {/* Projects Complete - Combined import with auto-linking */}
-          <div className="mb-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {/* Projects Complete - Combined import with auto-linking */}
             <button
               onClick={handleImportProjectsComplete}
               disabled={!!importingTemplate}
-              className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-purple-500/50 bg-purple-500/10 hover:bg-purple-500/20 hover:border-purple-500 transition-colors text-left disabled:opacity-50 ${
-                importingTemplate === 'projects-complete' ? 'border-purple-500 bg-purple-500/20' : ''
+              className={`flex items-center gap-2 p-3 rounded-lg border border-board-border bg-board-panel/50 hover:bg-board-panel hover:border-purple-500/50 transition-colors text-left disabled:opacity-50 ${
+                importingTemplate === 'projects-complete' ? 'border-purple-500' : ''
               }`}
             >
-              <div className="p-2 rounded bg-purple-500/30">
+              <div className="p-1.5 rounded bg-blue-500/20">
                 {importingTemplate === 'projects-complete' ? (
-                  <Loader2 size={20} className="text-purple-400 animate-spin" />
+                  <Loader2 size={16} className="text-purple-400 animate-spin" />
                 ) : (
-                  <FolderKanban size={20} className="text-purple-400" />
+                  <FolderKanban size={16} className="text-blue-400" />
                 )}
               </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-white">Projects (Complete)</div>
-                <div className="text-xs text-purple-400">
-                  Imports Summary + Detail feeds and auto-links them
-                </div>
-              </div>
-              <div className="text-purple-400">
-                <Link2 size={16} />
+              <div className="flex-1 min-w-0">
+                <div className="text-xs font-medium text-white truncate">Projects</div>
+                <div className="text-[10px] text-blue-400">Projects</div>
               </div>
             </button>
-          </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {templates
               // Filter out Project templates - use "Projects (Complete)" above instead
               .filter((t) => !t.filename.toLowerCase().includes('project'))
