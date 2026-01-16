@@ -520,9 +520,10 @@ export async function syncOpportunities(
     `);
 
     // Process each entry
-    for (const entry of entries) {
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
       try {
-        const mapped = mapOpportunityEntry(entry);
+        const mapped = mapOpportunityEntry(entry, i);
 
         const existing = selectStmt.get(mapped.external_id) as OpportunityRow | undefined;
 
@@ -832,29 +833,49 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
  * Map ATOM entry to opportunity record
  * Field mappings based on SSRS Opportunity report
  */
-function mapOpportunityEntry(entry: AtomEntry): Record<string, unknown> {
+function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, unknown> {
   // Try common field names - SSRS uses various naming conventions
   // ConnectWise typically uses Opp_RecID as the unique identifier
-  const externalId = entry.Opp_RecID || entry.OppRecID || entry.Opportunity_RecID ||
-                     entry.ID || entry.OpportunityID || entry.Opportunity_ID || entry.Id ||
-                     entry.Opp_ID || entry.OppID || entry.RecID || '';
-
-  // Log first entry's keys for debugging
-  if (!externalId) {
-    console.warn('[NativeSync] Opportunity missing ID! Available fields:', Object.keys(entry).join(', '));
-  }
+  let externalId = entry.Opp_RecID || entry.OppRecID || entry.Opportunity_RecID ||
+                   entry.ID || entry.OpportunityID || entry.Opportunity_ID || entry.Id ||
+                   entry.Opp_ID || entry.OppID || entry.RecID ||
+                   entry.Textbox1 || entry.Textbox2 || ''; // SSRS sometimes puts ID in Textbox fields
 
   // Opportunity name - try various field names
   const opportunityName = cleanHtmlEntities(
     entry.Name || entry.Opp_Name || entry.OpportunityName || entry.Opportunity_Name ||
-    entry.Description || entry.Opp_Description || ''
+    entry.Description || entry.Opp_Description || entry.Textbox3 || entry.Textbox4 || ''
   );
 
   // Company name - SSRS often uses Company_Name with underscore
   const companyName = cleanHtmlEntities(
     entry.Company_Name || entry.Company || entry.CompanyName ||
-    entry.Account || entry.Account_Name || entry.Client || ''
+    entry.Account || entry.Account_Name || entry.Client || entry.Textbox5 || entry.Textbox6 || ''
   );
+
+  // If no ID found, generate one from other unique fields
+  if (!externalId) {
+    // Log available fields for debugging (only first entry)
+    if (index === 0) {
+      console.warn('[NativeSync] Opportunity missing ID! Available fields:', Object.keys(entry).join(', '));
+      // Log first few values to help identify ID field
+      const sampleFields = Object.entries(entry).slice(0, 10).map(([k, v]) => `${k}="${v}"`).join(', ');
+      console.warn('[NativeSync] Sample values:', sampleFields);
+    }
+
+    // Generate unique ID from combination of fields
+    // Use company + name + any numeric field that might be unique
+    const numericFields = Object.entries(entry)
+      .filter(([, v]) => /^\d+$/.test(String(v)))
+      .map(([, v]) => v);
+    const firstNumeric = numericFields[0] || '';
+
+    externalId = `opp_${companyName}_${opportunityName}_${firstNumeric}`.replace(/[^a-zA-Z0-9_]/g, '_').substring(0, 100);
+
+    if (index === 0) {
+      console.log('[NativeSync] Generated fallback ID:', externalId);
+    }
+  }
 
   // Sales rep - various field names used
   const salesRep = cleanHtmlEntities(
