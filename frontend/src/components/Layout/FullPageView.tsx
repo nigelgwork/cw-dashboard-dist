@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FolderKanban, TrendingUp, Ticket, Search, Filter, List, LayoutGrid, Code } from 'lucide-react';
+import { FolderKanban, TrendingUp, Ticket, Search, Filter, List, LayoutGrid, Code, Settings } from 'lucide-react';
 import { Project, Opportunity, ServiceTicket } from '../../types';
 import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron, settings } from '../../api';
 import { useWebSocket } from '../../context/WebSocketContext';
 import ProjectCard from '../Project/ProjectCard';
 import OpportunityCard from '../Opportunity/OpportunityCard';
 import ServiceTicketCard from '../ServiceTicket/ServiceTicketCard';
+import DetailFieldsModal from '../Project/DetailFieldsModal';
 
 // Setting key for visible detail fields
 const PROJECT_DETAIL_VISIBLE_FIELDS_KEY = 'project_detail_visible_fields';
@@ -58,6 +59,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
 
   // Detail fields to display on project cards
   const [visibleDetailFields, setVisibleDetailFields] = useState<string[]>([]);
+  const [showDetailFieldsModal, setShowDetailFieldsModal] = useState(false);
 
   // Fetch visible detail fields setting
   useEffect(() => {
@@ -277,6 +279,17 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
           <Filter size={18} />
         </button>
 
+        {/* Detail Fields Settings - Only for Projects */}
+        {type === 'projects' && isElectron() && (
+          <button
+            onClick={() => setShowDetailFieldsModal(true)}
+            className="p-2 rounded text-gray-400 hover:text-white hover:bg-board-border transition-colors"
+            title="Configure detail fields"
+          >
+            <Settings size={18} />
+          </button>
+        )}
+
         {/* Search */}
         <div className="relative flex-1 max-w-md">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -468,6 +481,13 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
           </div>
         )}
       </div>
+
+      {/* Detail Fields Modal */}
+      <DetailFieldsModal
+        isOpen={showDetailFieldsModal}
+        onClose={() => setShowDetailFieldsModal(false)}
+        onSave={(fields) => setVisibleDetailFields(fields)}
+      />
     </div>
   );
 }

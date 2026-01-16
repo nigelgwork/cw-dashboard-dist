@@ -61,6 +61,65 @@ const KNOWN_FIELD_MAPPINGS: Record<string, string> = {
 
   // RowCount fields
   RowCount: 'Row Count',
+
+  // Common Textbox fields - these are typically labels or computed fields in SSRS
+  // Format: Textbox## where ## is a number assigned by SSRS report designer
+  Textbox1: 'Label 1',
+  Textbox2: 'Label 2',
+  Textbox3: 'Label 3',
+  Textbox4: 'Label 4',
+  Textbox5: 'Label 5',
+  Textbox6: 'Subtotal',
+  Textbox7: 'Total',
+  Textbox8: 'Grand Total',
+  Textbox9: 'Section Total',
+  Textbox10: 'Category',
+  Textbox11: 'Header',
+  Textbox12: 'Footer',
+  Textbox13: 'Summary Value',
+  Textbox14: 'Computed Value',
+  Textbox15: 'Aggregate',
+  Textbox16: 'Running Total',
+  Textbox17: 'Page Total',
+  Textbox18: 'Group Header',
+  Textbox19: 'Group Footer',
+  Textbox20: 'Column Header',
+  Textbox21: 'Row Header',
+  Textbox22: 'Detail Value',
+  Textbox23: 'Calculated Field',
+  Textbox24: 'Expression',
+  Textbox25: 'Formula Result',
+};
+
+/**
+ * Full field mappings including the Tablix prefix
+ * This allows for more specific mappings when we know exactly which field means what
+ */
+const FULL_FIELD_MAPPINGS: Record<string, string> = {
+  // Tablix1 - Project Header fields
+  'Tablix1_Company': 'Company Name',
+  'Tablix1_Name': 'Project Name',
+  'Tablix1_Status': 'Project Status',
+  'Tablix1_End_Date': 'End Date',
+
+  // Tablix2 - Financial Summary
+  'Tablix2_Quoted': 'Quoted Amount',
+  'Tablix2_Estimated_Cost': 'Estimated Cost',
+  'Tablix2_Actual_Cost': 'Actual Cost',
+  'Tablix2_Billable': 'Billable Amount',
+  'Tablix2_Invoiced': 'Invoiced Amount',
+  'Tablix2_WIP21': 'Work In Progress',
+  'Tablix2_CIA_Remaining': 'CIA Remaining',
+
+  // Tablix15 - Hours Summary
+  'Tablix15_Hours_Budget': 'Budgeted Hours',
+  'Tablix15_Hours_Actual': 'Actual Hours',
+  'Tablix15_Hours_Remaining': 'Remaining Hours',
+
+  // Tablix16 - Hours by Role
+  'Tablix16_Work_Role': 'Role',
+  'Tablix16_Time': 'Hours',
+  'Tablix16_Resource': 'Resource Name',
 };
 
 // Tablix category names for grouping in the UI
@@ -106,14 +165,39 @@ function toTitleCase(str: string): string {
  * @returns Human-readable display name
  */
 export function getFieldDisplayName(rawName: string, includeCategory = false): string {
+  // First, check if we have a full field mapping (includes Tablix prefix)
+  if (FULL_FIELD_MAPPINGS[rawName]) {
+    const displayName = FULL_FIELD_MAPPINGS[rawName];
+    if (includeCategory) {
+      const { tablix } = parseFieldName(rawName);
+      if (tablix) {
+        const category = TABLIX_CATEGORIES[tablix] || tablix;
+        return `${category}: ${displayName}`;
+      }
+    }
+    return displayName;
+  }
+
   const { tablix, baseName } = parseFieldName(rawName);
 
-  // Look up known mapping
+  // Check known mapping for base name
   let displayName = KNOWN_FIELD_MAPPINGS[baseName];
 
-  // If not found, convert to title case
+  // If not found, handle special cases
   if (!displayName) {
-    displayName = toTitleCase(baseName);
+    // Handle Textbox## pattern - give them generic but cleaner names
+    const textboxMatch = baseName.match(/^Textbox(\d+)$/i);
+    if (textboxMatch) {
+      const num = parseInt(textboxMatch[1], 10);
+      // Use meaningful generic names based on common SSRS patterns
+      if (num <= 5) displayName = `Label ${num}`;
+      else if (num <= 10) displayName = `Value ${num}`;
+      else if (num <= 20) displayName = `Field ${num}`;
+      else displayName = `Data ${num}`;
+    } else {
+      // Convert underscore_case to Title Case
+      displayName = toTitleCase(baseName);
+    }
   }
 
   // Optionally prefix with category
