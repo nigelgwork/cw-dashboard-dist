@@ -405,17 +405,32 @@ export default function SettingsPanel() {
                     {/* Location Filter */}
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-2">
-                        Sync Locations Filter
+                        Sync Location
                       </label>
-                      <input
-                        type="text"
+                      <select
                         value={syncLocations}
                         onChange={(e) => setSyncLocations(e.target.value)}
-                        placeholder="e.g. Adelaide, Melbourne, Sydney"
-                        className="w-full bg-board-bg border border-board-border rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                      />
+                        className="w-full bg-board-bg border border-board-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-blue-500"
+                      >
+                        <option value="">(Select All)</option>
+                        <option value="Adelaide">Adelaide</option>
+                        <option value="Analytics">Analytics</option>
+                        <option value="Corporate Overhead">Corporate Overhead</option>
+                        <option value="Cyber Security">Cyber Security</option>
+                        <option value="Human Resources">Human Resources</option>
+                        <option value="IIOT">IIOT</option>
+                        <option value="Northern NSW">Northern NSW</option>
+                        <option value="NQ">NQ</option>
+                        <option value="NSW Industry">NSW Industry</option>
+                        <option value="NSW Water">NSW Water</option>
+                        <option value="SEQ">SEQ</option>
+                        <option value="Unassigned">Unassigned</option>
+                        <option value="VIC Industry">VIC Industry</option>
+                        <option value="VIC Water">VIC Water</option>
+                        <option value="Welcon">Welcon</option>
+                      </select>
                       <p className="mt-1 text-xs text-gray-500">
-                        Comma-separated list of locations to sync. Leave empty to sync all locations.
+                        Filter synced data to a specific location. Select All to sync everything.
                       </p>
                     </div>
 
