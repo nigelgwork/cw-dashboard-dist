@@ -612,6 +612,38 @@ export default function AtomFeedManager() {
     }
   };
 
+  // Import both Project Summary and Detail templates and auto-link them
+  const handleImportProjectsComplete = async () => {
+    if (!inElectron) return;
+    setImportingTemplate('projects-complete');
+    try {
+      // Import Project Summary first
+      const summaryFeeds = await electronFeedsApi.importTemplate('Project-Summary.atomsvc');
+      if (summaryFeeds.length === 0) {
+        throw new Error('Failed to import Project Summary template');
+      }
+      const summaryFeed = summaryFeeds[0];
+
+      // Import Project Detail
+      const detailFeeds = await electronFeedsApi.importTemplate('Project-Detail.atomsvc');
+      if (detailFeeds.length === 0) {
+        throw new Error('Failed to import Project Detail template');
+      }
+      const detailFeed = detailFeeds[0];
+
+      // Link them together
+      await electronFeedsApi.linkDetail(summaryFeed.id, detailFeed.id);
+
+      showToast('success', 'Imported Projects with Detail feed (auto-linked)');
+      fetchFeeds();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to import combined templates';
+      showToast('error', message);
+    } finally {
+      setImportingTemplate(null);
+    }
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(true);
@@ -742,6 +774,35 @@ export default function AtomFeedManager() {
           <p className="text-xs text-gray-500 mb-3">
             These pre-configured templates work with your SSRS reports. Import one to quickly set up a feed.
           </p>
+
+          {/* Projects Complete - Combined import with auto-linking */}
+          <div className="mb-3">
+            <button
+              onClick={handleImportProjectsComplete}
+              disabled={!!importingTemplate}
+              className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 border-dashed border-purple-500/50 bg-purple-500/10 hover:bg-purple-500/20 hover:border-purple-500 transition-colors text-left disabled:opacity-50 ${
+                importingTemplate === 'projects-complete' ? 'border-purple-500 bg-purple-500/20' : ''
+              }`}
+            >
+              <div className="p-2 rounded bg-purple-500/30">
+                {importingTemplate === 'projects-complete' ? (
+                  <Loader2 size={20} className="text-purple-400 animate-spin" />
+                ) : (
+                  <FolderKanban size={20} className="text-purple-400" />
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="text-sm font-medium text-white">Projects (Complete)</div>
+                <div className="text-xs text-purple-400">
+                  Imports Summary + Detail feeds and auto-links them
+                </div>
+              </div>
+              <div className="text-purple-400">
+                <Link2 size={16} />
+              </div>
+            </button>
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {templates.map((template) => {
               const TypeIcon = getFeedTypeIcon(template.type as FeedType);
