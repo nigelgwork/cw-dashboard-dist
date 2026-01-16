@@ -853,14 +853,12 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
     entry.Hours_Left || entry.HoursLeft || entry.Left_Hours || entry.LeftHours
   );
 
-  // Log hours fields for debugging (first entry only)
-  if (externalId === '2399' || (!hoursEstimate && budget)) {
+  // Log hours fields for debugging
+  if (externalId === '2399' || !hoursEstimate) {
     console.log(`[NativeSync] Project ${externalId} hours debug:`, {
       hoursEstimate,
       hoursActual,
       hoursRemaining,
-      budget,
-      usingFallback: !hoursEstimate && budget && budget > 0,
       // Log any field that might contain hours
       possibleHoursFields: Object.entries(entry)
         .filter(([k, v]) => {
@@ -872,27 +870,8 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
     });
   }
 
-  // If we don't have hours from the data, try to calculate from cost
-  // (only as fallback, since this is less accurate)
-  if (!hoursEstimate && budget && budget > 0) {
-    // Fallback: estimate hours from budget at $125/hour
-    console.log(`[NativeSync] Project ${externalId}: No hours field found, using budget fallback (${budget} / 125 = ${Math.round((budget / 125) * 100) / 100}h)`);
-    hoursEstimate = Math.round((budget / 125) * 100) / 100;
-  }
-
-  if (!hoursActual && actualCost && actualCost > 0) {
-    // Fallback: estimate actual hours from cost at $125/hour
-    hoursActual = Math.round((actualCost / 125) * 100) / 100;
-  }
-
-  if (!hoursRemaining && hoursEstimate && hoursActual !== null && hoursActual !== undefined) {
-    // Calculate remaining from estimate - actual
-    hoursRemaining = Math.max(0, hoursEstimate - hoursActual);
-  } else if (!hoursRemaining && estimatedCost && actualCost !== null && actualCost !== undefined) {
-    // Fallback: calculate from cost difference
-    const remainingCost = Math.max(0, estimatedCost - actualCost);
-    hoursRemaining = Math.round((remainingCost / 125) * 100) / 100;
-  }
+  // NO FALLBACK CALCULATIONS - only use real data from the feed
+  // If hours data is not available, it will be null and displayed as N/A in the UI
 
   // Build notes with WIP and completion percentage
   const wip = entry.WIP1 || entry.WIP || '';

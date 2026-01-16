@@ -6,7 +6,7 @@
  * Format a number as Australian currency
  */
 export function formatCurrency(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '-';
+  if (value === undefined || value === null) return 'N/A';
   return new Intl.NumberFormat('en-AU', {
     style: 'currency',
     currency: 'AUD',
@@ -19,7 +19,7 @@ export function formatCurrency(value: number | undefined | null): string {
  * Format hours with 'h' suffix
  */
 export function formatHours(hours: number | undefined | null): string {
-  if (hours === undefined || hours === null) return '-';
+  if (hours === undefined || hours === null) return 'N/A';
   return `${Math.round(hours)}h`;
 }
 
@@ -27,7 +27,7 @@ export function formatHours(hours: number | undefined | null): string {
  * Format a percentage with max 1 decimal place
  */
 export function formatPercent(value: number | undefined | null): string {
-  if (value === undefined || value === null) return '-';
+  if (value === undefined || value === null) return 'N/A';
   // Show integer if whole number, otherwise max 1 decimal place
   const formatted = Number.isInteger(value) ? value.toString() : value.toFixed(1);
   return `${formatted}%`;
@@ -37,7 +37,7 @@ export function formatPercent(value: number | undefined | null): string {
  * Format a date in Australian format
  */
 export function formatDate(dateStr: string | undefined | null): string {
-  if (!dateStr) return '-';
+  if (!dateStr) return 'N/A';
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
 }
