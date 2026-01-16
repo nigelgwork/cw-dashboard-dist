@@ -105,32 +105,52 @@ export async function parseAtomFeed(xmlContent: string): Promise<AtomEntry[]> {
     const record: AtomEntry = {};
 
     // Flatten all properties - ensure all values are strings
+    // xml2js creates objects like { $: {attrs}, _: "text" } for elements with attributes
     for (const [key, value] of Object.entries(props)) {
       if (value === null || value === undefined) {
         record[key] = '';
       } else if (Array.isArray(value)) {
         // Handle arrays (xml2js creates these for repeated elements)
-        // Take first element's text content or join all values
         if (value.length === 0) {
           record[key] = '';
-        } else if (typeof value[0] === 'object' && value[0]._) {
-          record[key] = String(value[0]._);
-        } else if (typeof value[0] === 'string') {
-          record[key] = value[0];
         } else {
-          // Fallback: stringify the array for debugging
-          record[key] = JSON.stringify(value);
+          // Extract text from first element
+          const first = value[0];
+          if (typeof first === 'string') {
+            record[key] = first;
+          } else if (typeof first === 'number' || typeof first === 'boolean') {
+            record[key] = String(first);
+          } else if (first && typeof first === 'object') {
+            const text = first._;
+            if (typeof text === 'string') {
+              record[key] = text;
+            } else if (typeof text === 'number' || typeof text === 'boolean') {
+              record[key] = String(text);
+            } else {
+              record[key] = JSON.stringify(first);
+            }
+          } else {
+            record[key] = JSON.stringify(value);
+          }
         }
       } else if (typeof value === 'object') {
         // Handle complex value with _ for text content
-        const textContent = (value as { _?: string })._;
-        if (textContent !== undefined) {
-          record[key] = String(textContent);
+        const text = (value as Record<string, unknown>)._;
+        if (typeof text === 'string') {
+          record[key] = text;
+        } else if (typeof text === 'number' || typeof text === 'boolean') {
+          record[key] = String(text);
+        } else if (text !== undefined) {
+          // text exists but is an object - stringify it
+          record[key] = JSON.stringify(text);
         } else {
-          // Fallback: stringify the object for debugging
+          // No text content - stringify the whole object
           record[key] = JSON.stringify(value);
         }
+      } else if (typeof value === 'string') {
+        record[key] = value;
       } else {
+        // number, boolean, etc.
         record[key] = String(value);
       }
     }
