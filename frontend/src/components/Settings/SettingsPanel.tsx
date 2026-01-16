@@ -18,6 +18,7 @@ import {
 import AtomFeedManager from './AtomFeedManager';
 import { isElectron, electronUpdatesApi, electronSettingsApi, electronProjectsApi, electronOpportunitiesApi, electronServiceTicketsApi, electronFeedsApi, ProjectDetailDiagnostics, FeedDetailDiagnostics, TestFetchDetailResult } from '../../api/electron-api';
 import { useToast } from '../../context/ToastContext';
+import { getFieldDisplayNameWithCategory, groupFieldsByCategory, sortFieldsByCategory } from '../../utils/detailFieldNames';
 
 type SettingsTab = 'feeds' | 'sync' | 'detail-fields' | 'data' | 'updates' | 'about';
 
@@ -68,6 +69,7 @@ export default function SettingsPanel() {
   // Sync settings
   const [syncInterval, setSyncInterval] = useState<string>('60');
   const [autoSync, setAutoSync] = useState<boolean>(true);
+  const [syncLocations, setSyncLocations] = useState<string>('');
   const [savingSettings, setSavingSettings] = useState(false);
 
   // Data clearing state
@@ -99,8 +101,10 @@ export default function SettingsPanel() {
       try {
         const interval = await electronSettingsApi.get('sync_interval_minutes');
         const auto = await electronSettingsApi.get('auto_sync_enabled');
+        const locations = await electronSettingsApi.get('sync_locations');
         if (interval) setSyncInterval(interval);
         if (auto !== null) setAutoSync(auto === 'true');
+        if (locations !== null) setSyncLocations(locations);
       } catch (err) {
         console.error('Failed to load settings:', err);
       }
@@ -248,6 +252,7 @@ export default function SettingsPanel() {
     try {
       await electronSettingsApi.set('sync_interval_minutes', syncInterval);
       await electronSettingsApi.set('auto_sync_enabled', autoSync.toString());
+      await electronSettingsApi.set('sync_locations', syncLocations);
       showToast('success', 'Settings saved');
     } catch (err) {
       showToast('error', 'Failed to save settings');
@@ -395,6 +400,23 @@ export default function SettingsPanel() {
                           }`}
                         />
                       </button>
+                    </div>
+
+                    {/* Location Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Sync Locations Filter
+                      </label>
+                      <input
+                        type="text"
+                        value={syncLocations}
+                        onChange={(e) => setSyncLocations(e.target.value)}
+                        placeholder="e.g. Adelaide, Melbourne, Sydney"
+                        className="w-full bg-board-bg border border-board-border rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Comma-separated list of locations to sync. Leave empty to sync all locations.
+                      </p>
                     </div>
 
                     {/* Save Button */}
@@ -722,26 +744,35 @@ export default function SettingsPanel() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto">
-                        {availableDetailFields.map(field => (
-                          <label
-                            key={field}
-                            className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
-                              selectedDetailFields.includes(field)
-                                ? 'bg-purple-500/20 border border-purple-500/30'
-                                : 'bg-board-bg border border-board-border hover:border-gray-600'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedDetailFields.includes(field)}
-                              onChange={() => toggleDetailField(field)}
-                              className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
-                            />
-                            <span className="text-sm text-gray-300 truncate" title={field}>
-                              {field}
-                            </span>
-                          </label>
+                      <div className="max-h-96 overflow-y-auto space-y-4">
+                        {Object.entries(groupFieldsByCategory(availableDetailFields)).map(([category, fields]) => (
+                          <div key={category}>
+                            <h4 className="text-xs font-medium text-purple-400 uppercase tracking-wide mb-2 sticky top-0 bg-board-panel py-1">
+                              {category}
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                              {fields.map(field => (
+                                <label
+                                  key={field}
+                                  className={`flex items-center gap-2 p-2 rounded cursor-pointer transition-colors ${
+                                    selectedDetailFields.includes(field)
+                                      ? 'bg-purple-500/20 border border-purple-500/30'
+                                      : 'bg-board-bg border border-board-border hover:border-gray-600'
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedDetailFields.includes(field)}
+                                    onChange={() => toggleDetailField(field)}
+                                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
+                                  />
+                                  <span className="text-sm text-gray-300 truncate" title={`${getFieldDisplayNameWithCategory(field)} (${field})`}>
+                                    {getFieldDisplayNameWithCategory(field).split(': ')[1] || field}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>

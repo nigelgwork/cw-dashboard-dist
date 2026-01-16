@@ -11,8 +11,8 @@ import { session } from 'electron';
 import { parseStringPromise } from 'xml2js';
 import { getDatabase } from '../database/connection';
 import { ProjectRow, OpportunityRow, ServiceTicketRow } from '../database/schema';
-import { applyDynamicDates, createDetailFeedUrl } from './atomsvc-parser';
-import { getDateLookbackDays, isAdaptiveSyncEnabled } from './settings';
+import { applyDynamicDates, createDetailFeedUrl, injectLocationFilter } from './atomsvc-parser';
+import { getDateLookbackDays, isAdaptiveSyncEnabled, getSyncLocations } from './settings';
 import { getDetailFeed } from './feeds';
 
 export interface SyncResult {
@@ -251,7 +251,14 @@ export async function syncProjects(
   try {
     // Apply dynamic dates to URL before fetching
     const lookbackDays = getDateLookbackDays();
-    const dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+    let dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+
+    // Apply location filter if configured
+    const syncLocations = getSyncLocations();
+    if (syncLocations.length > 0) {
+      console.log(`[NativeSync] Applying location filter: ${syncLocations.join(', ')}`);
+      dynamicUrl = injectLocationFilter(dynamicUrl, syncLocations);
+    }
 
     // Check for linked detail feed for adaptive sync
     let detailFeedUrl: string | null = null;
@@ -447,7 +454,14 @@ export async function syncOpportunities(
   try {
     // Apply dynamic dates to URL before fetching
     const lookbackDays = getDateLookbackDays();
-    const dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+    let dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+
+    // Apply location filter if configured
+    const syncLocations = getSyncLocations();
+    if (syncLocations.length > 0) {
+      console.log(`[NativeSync] Applying location filter to opportunities: ${syncLocations.join(', ')}`);
+      dynamicUrl = injectLocationFilter(dynamicUrl, syncLocations);
+    }
 
     // Fetch the feed
     const xmlContent = await fetchAtomFeed(dynamicUrl);
@@ -467,6 +481,12 @@ export async function syncOpportunities(
 
     // Log sample entry for debugging
     console.log('[NativeSync] Sample opportunity entry keys:', Object.keys(entries[0]));
+    // Log first entry's ID-related fields to help debug mapping issues
+    const sampleEntry = entries[0];
+    const idFields = Object.entries(sampleEntry)
+      .filter(([key]) => key.toLowerCase().includes('id') || key.toLowerCase().includes('rec'))
+      .slice(0, 10);
+    console.log('[NativeSync] Sample opportunity ID fields:', JSON.stringify(Object.fromEntries(idFields)));
 
     let created = 0;
     let updated = 0;
@@ -593,7 +613,14 @@ export async function syncServiceTickets(
   try {
     // Apply dynamic dates to URL before fetching
     const lookbackDays = getDateLookbackDays();
-    const dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+    let dynamicUrl = applyDynamicDates(feedUrl, lookbackDays);
+
+    // Apply location filter if configured
+    const syncLocations = getSyncLocations();
+    if (syncLocations.length > 0) {
+      console.log(`[NativeSync] Applying location filter to service tickets: ${syncLocations.join(', ')}`);
+      dynamicUrl = injectLocationFilter(dynamicUrl, syncLocations);
+    }
 
     // Fetch the feed
     const xmlContent = await fetchAtomFeed(dynamicUrl);
@@ -806,16 +833,54 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
  * Field mappings based on SSRS Opportunity report
  */
 function mapOpportunityEntry(entry: AtomEntry): Record<string, unknown> {
-  // Try common field names
-  const externalId = entry.ID || entry.OpportunityID || entry.Opportunity_ID || entry.Id || '';
-  const opportunityName = cleanHtmlEntities(entry.Name || entry.OpportunityName || entry.Opportunity_Name || '');
-  const companyName = cleanHtmlEntities(entry.Company || entry.CompanyName || entry.Company_Name || '');
-  const salesRep = cleanHtmlEntities(entry.SalesRep || entry.Sales_Rep || entry.Owner || entry.Rep || '');
-  const stage = entry.Stage || entry.SalesStage || entry.Status || '';
+  // Try common field names - SSRS uses various naming conventions
+  // ConnectWise typically uses Opp_RecID as the unique identifier
+  const externalId = entry.Opp_RecID || entry.OppRecID || entry.Opportunity_RecID ||
+                     entry.ID || entry.OpportunityID || entry.Opportunity_ID || entry.Id ||
+                     entry.Opp_ID || entry.OppID || entry.RecID || '';
 
-  const expectedRevenue = parseNumber(entry.Revenue || entry.ExpectedRevenue || entry.Expected_Revenue || entry.Amount);
-  const closeDate = entry.CloseDate || entry.Close_Date || entry.ExpectedClose || null;
-  const probability = parseNumber(entry.Probability || entry.Prob || entry.WinProbability);
+  // Log first entry's keys for debugging
+  if (!externalId) {
+    console.warn('[NativeSync] Opportunity missing ID! Available fields:', Object.keys(entry).join(', '));
+  }
+
+  // Opportunity name - try various field names
+  const opportunityName = cleanHtmlEntities(
+    entry.Name || entry.Opp_Name || entry.OpportunityName || entry.Opportunity_Name ||
+    entry.Description || entry.Opp_Description || ''
+  );
+
+  // Company name - SSRS often uses Company_Name with underscore
+  const companyName = cleanHtmlEntities(
+    entry.Company_Name || entry.Company || entry.CompanyName ||
+    entry.Account || entry.Account_Name || entry.Client || ''
+  );
+
+  // Sales rep - various field names used
+  const salesRep = cleanHtmlEntities(
+    entry.Sales_Rep || entry.SalesRep || entry.Rep || entry.Owner ||
+    entry.Primary_Sales_Rep || entry.PrimarySalesRep || entry.Member_Name || ''
+  );
+
+  // Stage - ConnectWise uses various stage/status fields
+  const stage = entry.Sales_Stage || entry.SalesStage || entry.Stage ||
+                entry.Status || entry.Opp_Status || entry.Status_Description || '';
+
+  // Expected revenue - try various field names
+  const expectedRevenue = parseNumber(
+    entry.Expected_Revenue || entry.ExpectedRevenue || entry.Revenue ||
+    entry.Amount || entry.Opp_Amount || entry.Total || entry.Value
+  );
+
+  // Close date
+  const closeDate = entry.Expected_Close || entry.ExpectedClose || entry.CloseDate ||
+                    entry.Close_Date || entry.Closed_Date || entry.Exp_Close || null;
+
+  // Probability
+  const probability = parseNumber(
+    entry.Probability || entry.Prob || entry.Win_Probability ||
+    entry.WinProbability || entry.Opp_Probability
+  );
 
   // Store raw data for debugging
   const rawData = JSON.stringify(entry);
@@ -828,7 +893,7 @@ function mapOpportunityEntry(entry: AtomEntry): Record<string, unknown> {
     stage: stage || null,
     expected_revenue: expectedRevenue || null,
     close_date: closeDate || null,
-    probability: probability ? Math.round(probability * 100) : null,
+    probability: probability !== null ? Math.round((probability > 1 ? probability : probability * 100)) : null,
     notes: null,
     raw_data: rawData,
   };

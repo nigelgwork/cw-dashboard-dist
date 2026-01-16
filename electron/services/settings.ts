@@ -84,6 +84,7 @@ export const SettingKeys = {
   DATE_LOOKBACK_DAYS: 'date_lookback_days',
   ADAPTIVE_SYNC_ENABLED: 'adaptive_sync_enabled',
   PROJECT_DETAIL_VISIBLE_FIELDS: 'project_detail_visible_fields',
+  SYNC_LOCATIONS: 'sync_locations', // Comma-separated list of locations to filter by
 } as const;
 
 // Default values
@@ -130,4 +131,14 @@ export function getDateLookbackDays(): number {
 export function isAdaptiveSyncEnabled(): boolean {
   const value = getSetting(SettingKeys.ADAPTIVE_SYNC_ENABLED);
   return value ? value === 'true' : SettingDefaults[SettingKeys.ADAPTIVE_SYNC_ENABLED] === 'true';
+}
+
+/**
+ * Get sync locations filter
+ * Returns array of location names, or empty array if not set (sync all)
+ */
+export function getSyncLocations(): string[] {
+  const value = getSetting(SettingKeys.SYNC_LOCATIONS);
+  if (!value || value.trim() === '') return [];
+  return value.split(',').map(s => s.trim()).filter(s => s.length > 0);
 }

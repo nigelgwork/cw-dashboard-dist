@@ -10,6 +10,7 @@ import {
   getProjectStatusStyle,
   getProjectStatusColor,
 } from '../../utils/formatting';
+import { getFieldShortDisplayName } from '../../utils/detailFieldNames';
 
 interface ProjectCardProps {
   project: Project;
@@ -155,7 +156,7 @@ export default function ProjectCard({ project, isPinned, onTogglePin, alwaysExpa
               <div className="space-y-1">
                 {detailFields.map(field => (
                   <div key={field.name} className="flex gap-2 text-xs">
-                    <span className="text-gray-500 flex-shrink-0">{field.name}:</span>
+                    <span className="text-gray-500 flex-shrink-0">{getFieldShortDisplayName(field.name)}:</span>
                     <span className="text-gray-400 break-words">{field.value}</span>
                   </div>
                 ))}

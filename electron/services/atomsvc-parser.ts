@@ -610,6 +610,64 @@ export function applyDynamicDates(url: string, lookbackDays: number = 730): stri
 }
 
 /**
+ * Location parameter names used in different SSRS reports
+ */
+const LOCATION_PARAMETERS = [
+  'Locations',  // Project Manager Summary Report
+  'Location',   // Opportunity List, Service Tickets
+];
+
+/**
+ * Inject location filter parameters into a feed URL
+ *
+ * Different SSRS reports use different parameter names for location:
+ * - Projects: Locations (multi-value)
+ * - Opportunities: Location (single value, but can be passed multiple times)
+ * - Service Tickets: Location (multi-value)
+ *
+ * @param url The feed URL
+ * @param locations Array of location names to filter by
+ * @returns URL with location parameters injected
+ */
+export function injectLocationFilter(url: string, locations: string[]): string {
+  if (!locations || locations.length === 0) {
+    return url;
+  }
+
+  try {
+    const urlObj = new URL(url);
+    const baseUrl = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`;
+    const queryString = urlObj.search.substring(1);
+    const parts = queryString.split('&').filter(p => p);
+
+    // Detect which location parameter name to use based on report path
+    const reportPath = decodeURIComponent(queryString.split('&')[0] || '').toLowerCase();
+    let locationParamName = 'Locations'; // Default
+
+    if (reportPath.includes('opportunity')) {
+      locationParamName = 'Location';
+    } else if (reportPath.includes('service') || reportPath.includes('ticket')) {
+      locationParamName = 'Location';
+    }
+
+    console.log(`[AtomSvcParser] Injecting ${locations.length} location(s) using param: ${locationParamName}`);
+
+    // Add location parameters
+    const locationParams = locations.map(loc =>
+      `${locationParamName}=${encodeURIComponent(loc)}`
+    );
+
+    // Insert location params after the report path (first param)
+    const resultParts = [parts[0], ...locationParams, ...parts.slice(1)];
+
+    return baseUrl + '?' + resultParts.join('&');
+  } catch (error) {
+    console.error('[AtomSvcParser] Error injecting location filter:', error);
+    return url;
+  }
+}
+
+/**
  * Parameters in detail feed URLs that contain the project ID placeholder
  * These all need to be replaced with the actual project ID when fetching details
  */
