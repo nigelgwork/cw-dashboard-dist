@@ -146,15 +146,20 @@ export async function parseAtomFeed(xmlContent: string): Promise<AtomEntry[]> {
  * Fetch and parse project detail for a single project
  * Returns ALL fields from the detail feed for storage
  */
-// Tablixes to fetch for project detail data (in priority order)
-// Each tablix contains different data sections from the SSRS report
+// Tablixes to fetch for project detail data - each contains different sections from the SSRS report
 const DETAIL_TABLIXES = [
-  'Tablix1',   // Project header: Company, Name, Status, End_Date
-  'Tablix2',   // Financial summary: Quoted, Estimated_Cost, Actual_Cost, Billable, Invoiced
-  'Tablix15',  // Hours summary: Hours_Budget, Hours_Actual, Hours_Remaining, %Used
-  'Tablix16',  // Hours by role: Work_Role, Time
-  'Tablix8',   // Time entries (first row has totals): Total hours, Total labour cost
+  'Tablix1',   // Overview: Company, Name, Status, End_Date
+  'Tablix2',   // Financial Summary: Quoted, Estimated_Cost, Actual_Cost, Billable, Invoiced, WIP, CIA
+  'Tablix3',   // Financial Metrics (EVM): Total_Budget, Pct_Complete, PV, EV, AC, SV, SPI, CV, CPI, EAC, ETC, VAC, TCPI
+  'Tablix4',   // Hours Summary: Estimated_Hours, Actual_Hours, Hours_Remaining, Pct_Used, Avg_Hr_Cost
+  'Tablix5',   // Cost Summary: Estimated_Costs, Actual_Cost, Pct_Used
+  'Tablix7',   // Products: Received, PO_Number, Item_Id, Quantity, Unit_Cost, Total_Cost, etc.
+  'Tablix8',   // Time Entries (first row has totals): Total hours, Total labour cost
+  'Tablix9',   // Expense: Status, Expense_Type, Date_Expense, Note, Expense_Cost, Billable_Amt
   'Tablix10',  // H/W + Expenses (first row has totals): Total cost
+  'Tablix11',  // Invoices: Date_Invoice, Invoice_Number, Invoice_Amount, Due_Date, Paid_Flag
+  'Tablix15',  // Hours Summary (alternate): Hours_Budget, Hours_Actual, Hours_Remaining, %Used
+  'Tablix16',  // Hours by Role: Work_Role, Time
 ];
 
 export async function fetchProjectDetail(
@@ -576,7 +581,7 @@ export async function syncOpportunities(
         const existing = selectStmt.get(mapped.external_id) as OpportunityRow | undefined;
 
         if (existing) {
-          // Check for changes
+          // Check for changes (include raw_data to fix corrupted JSON from older versions)
           const changes = compareFields(existing, mapped, [
             'opportunity_name',
             'company_name',
@@ -586,6 +591,7 @@ export async function syncOpportunities(
             'close_date',
             'probability',
             'notes',
+            'raw_data',
           ]);
 
           if (changes.length > 0) {
@@ -735,7 +741,7 @@ export async function syncServiceTickets(
         const existing = selectStmt.get(mapped.external_id) as ServiceTicketRow | undefined;
 
         if (existing) {
-          // Check for changes
+          // Check for changes (include raw_data to fix corrupted JSON from older versions)
           const changes = compareFields(existing, mapped, [
             'summary',
             'status',
@@ -749,6 +755,7 @@ export async function syncServiceTickets(
             'hours_remaining',
             'budget',
             'notes',
+            'raw_data',
           ]);
 
           if (changes.length > 0) {
