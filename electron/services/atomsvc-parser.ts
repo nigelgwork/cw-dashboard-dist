@@ -610,20 +610,25 @@ export function applyDynamicDates(url: string, lookbackDays: number = 730): stri
 }
 
 /**
- * Location parameter names used in different SSRS reports
+ * Location ID mapping for Opportunities report (uses numeric IDs)
+ * Key is the location name, value is the numeric ID used by SSRS
+ * TODO: Add more location IDs as they are discovered
  */
-const LOCATION_PARAMETERS = [
-  'Locations',  // Project Manager Summary Report
-  'Location',   // Opportunity List, Service Tickets
-];
+const LOCATION_IDS: Record<string, string> = {
+  'Adelaide': '19',
+  // Add more mappings as IDs are discovered:
+  // 'Analytics': 'XX',
+  // 'Corporate Overhead': 'XX',
+  // etc.
+};
 
 /**
  * Inject location filter parameters into a feed URL
  *
- * Different SSRS reports use different parameter names for location:
- * - Projects: Locations (multi-value)
- * - Opportunities: Location (single value, but can be passed multiple times)
- * - Service Tickets: Location (multi-value)
+ * Different SSRS reports use different parameter formats:
+ * - Projects: Locations=Adelaide (text name, plural param)
+ * - Opportunities: Location=19 (numeric ID, singular param)
+ * - Service Tickets: No location parameter supported
  *
  * @param url The feed URL
  * @param locations Array of location names to filter by
@@ -640,22 +645,35 @@ export function injectLocationFilter(url: string, locations: string[]): string {
     const queryString = urlObj.search.substring(1);
     const parts = queryString.split('&').filter(p => p);
 
-    // Detect which location parameter name to use based on report path
+    // Detect report type from path
     const reportPath = decodeURIComponent(queryString.split('&')[0] || '').toLowerCase();
-    let locationParamName = 'Locations'; // Default
 
-    if (reportPath.includes('opportunity')) {
-      locationParamName = 'Location';
-    } else if (reportPath.includes('service') || reportPath.includes('ticket')) {
-      locationParamName = 'Location';
+    // Service Tickets don't support location filtering
+    if (reportPath.includes('service') || reportPath.includes('ticket')) {
+      console.log(`[AtomSvcParser] Skipping location filter for service tickets (not supported)`);
+      return url;
     }
 
-    console.log(`[AtomSvcParser] Injecting ${locations.length} location(s) using param: ${locationParamName}`);
+    let locationParams: string[] = [];
 
-    // Add location parameters
-    const locationParams = locations.map(loc =>
-      `${locationParamName}=${encodeURIComponent(loc)}`
-    );
+    if (reportPath.includes('opportunity')) {
+      // Opportunities use numeric IDs with singular "Location" param
+      const locationIds = locations
+        .map(loc => LOCATION_IDS[loc])
+        .filter(id => id !== undefined);
+
+      if (locationIds.length === 0) {
+        console.warn(`[AtomSvcParser] No location IDs found for: ${locations.join(', ')}`);
+        return url;
+      }
+
+      locationParams = locationIds.map(id => `Location=${id}`);
+      console.log(`[AtomSvcParser] Injecting opportunity location IDs: ${locationIds.join(', ')}`);
+    } else {
+      // Projects use text names with plural "Locations" param
+      locationParams = locations.map(loc => `Locations=${encodeURIComponent(loc)}`);
+      console.log(`[AtomSvcParser] Injecting project locations: ${locations.join(', ')}`);
+    }
 
     // Insert location params after the report path (first param)
     const resultParts = [parts[0], ...locationParams, ...parts.slice(1)];

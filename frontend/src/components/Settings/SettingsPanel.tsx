@@ -414,23 +414,23 @@ export default function SettingsPanel() {
                       >
                         <option value="">(Select All)</option>
                         <option value="Adelaide">Adelaide</option>
-                        <option value="Analytics">Analytics</option>
-                        <option value="Corporate Overhead">Corporate Overhead</option>
-                        <option value="Cyber Security">Cyber Security</option>
-                        <option value="Human Resources">Human Resources</option>
-                        <option value="IIOT">IIOT</option>
-                        <option value="Northern NSW">Northern NSW</option>
-                        <option value="NQ">NQ</option>
-                        <option value="NSW Industry">NSW Industry</option>
-                        <option value="NSW Water">NSW Water</option>
-                        <option value="SEQ">SEQ</option>
-                        <option value="Unassigned">Unassigned</option>
-                        <option value="VIC Industry">VIC Industry</option>
-                        <option value="VIC Water">VIC Water</option>
-                        <option value="Welcon">Welcon</option>
+                        <option value="Analytics" disabled className="text-gray-600">Analytics (ID not configured)</option>
+                        <option value="Corporate Overhead" disabled className="text-gray-600">Corporate Overhead (ID not configured)</option>
+                        <option value="Cyber Security" disabled className="text-gray-600">Cyber Security (ID not configured)</option>
+                        <option value="Human Resources" disabled className="text-gray-600">Human Resources (ID not configured)</option>
+                        <option value="IIOT" disabled className="text-gray-600">IIOT (ID not configured)</option>
+                        <option value="Northern NSW" disabled className="text-gray-600">Northern NSW (ID not configured)</option>
+                        <option value="NQ" disabled className="text-gray-600">NQ (ID not configured)</option>
+                        <option value="NSW Industry" disabled className="text-gray-600">NSW Industry (ID not configured)</option>
+                        <option value="NSW Water" disabled className="text-gray-600">NSW Water (ID not configured)</option>
+                        <option value="SEQ" disabled className="text-gray-600">SEQ (ID not configured)</option>
+                        <option value="Unassigned" disabled className="text-gray-600">Unassigned (ID not configured)</option>
+                        <option value="VIC Industry" disabled className="text-gray-600">VIC Industry (ID not configured)</option>
+                        <option value="VIC Water" disabled className="text-gray-600">VIC Water (ID not configured)</option>
+                        <option value="Welcon" disabled className="text-gray-600">Welcon (ID not configured)</option>
                       </select>
                       <p className="mt-1 text-xs text-gray-500">
-                        Filter synced data to a specific location. Select All to sync everything.
+                        Filter synced data to a specific location. Only Adelaide is currently configured for Opportunities filtering.
                       </p>
                     </div>
 
