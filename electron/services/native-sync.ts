@@ -356,7 +356,29 @@ export async function syncProjects(
                                    lowerStatus.includes('closed');
                 mapped.is_active = isInactive ? 0 : 1;
               }
-              console.log(`[NativeSync] Project ${mapped.external_id}: Status="${mapped.status}", isActive=${mapped.is_active}, detailFields=${Object.keys(detail.allFields).length}`);
+
+              // Extract hours from detail feed (Tablix15 has Hours_Budget, Hours_Actual)
+              const fields = detail.allFields;
+              const detailHoursEstimate = parseNumber(fields.Hours_Budget || fields.HoursBudget);
+              const detailHoursActual = parseNumber(fields.Hours_Actual || fields.HoursActual);
+              const detailHoursRemaining = parseNumber(fields.Textbox319 || fields.Hours_Remaining || fields.HoursRemaining);
+
+              // Use detail hours if available (they're more accurate than budget-based calculation)
+              if (detailHoursEstimate !== null) {
+                mapped.hours_estimate = detailHoursEstimate;
+                console.log(`[NativeSync] Project ${mapped.external_id}: Using detail Hours_Budget=${detailHoursEstimate}`);
+              }
+              if (detailHoursActual !== null) {
+                mapped.hours_actual = detailHoursActual;
+              }
+              if (detailHoursRemaining !== null) {
+                mapped.hours_remaining = detailHoursRemaining;
+              } else if (detailHoursEstimate !== null && detailHoursActual !== null) {
+                // Calculate remaining if not provided
+                mapped.hours_remaining = Math.max(0, detailHoursEstimate - detailHoursActual);
+              }
+
+              console.log(`[NativeSync] Project ${mapped.external_id}: Status="${mapped.status}", isActive=${mapped.is_active}, hours=${mapped.hours_actual}/${mapped.hours_estimate}, detailFields=${Object.keys(detail.allFields).length}`);
             }
           } catch (detailError) {
             console.error(`[NativeSync] Failed to fetch detail for ${mapped.external_id}:`, detailError);
@@ -374,6 +396,7 @@ export async function syncProjects(
             'budget',
             'spent',
             'hours_estimate',
+            'hours_actual',
             'hours_remaining',
             'status',
             'is_active',
