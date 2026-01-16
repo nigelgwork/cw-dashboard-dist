@@ -804,7 +804,10 @@ export default function AtomFeedManager() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            {templates.map((template) => {
+            {templates
+              // Filter out Project templates - use "Projects (Complete)" above instead
+              .filter((t) => !t.filename.toLowerCase().includes('project'))
+              .map((template) => {
               const TypeIcon = getFeedTypeIcon(template.type as FeedType);
               const { text: typeColor, bg: typeBgColor } = getFeedTypeColor(template.type as FeedType);
               const isImporting = importingTemplate === template.filename;
