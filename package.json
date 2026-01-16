@@ -1,6 +1,6 @@
 {
   "name": "cw-dashboard",
-  "version": "1.0.37",
+  "version": "1.0.38",
   "description": "CW Dashboard - ConnectWise Project and Opportunity Tracker",
   "main": "dist-electron/main.js",
   "author": "Gaskony",
@@ -43,6 +43,13 @@
     "files": [
       "dist-electron/**/*",
       "frontend/dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "templates",
+        "to": "templates",
+        "filter": ["**/*.atomsvc"]
+      }
     ],
     "win": {
       "target": [

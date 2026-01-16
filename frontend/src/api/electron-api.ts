@@ -404,7 +404,34 @@ export const electronFeedsApi = {
     const api = getElectronAPI();
     return api.feeds.testFetchProjectDetail(projectId);
   },
+
+  getAvailableTemplates: async (): Promise<FeedTemplate[]> => {
+    const api = getElectronAPI();
+    return api.feeds.getAvailableTemplates();
+  },
+
+  exportTemplates: async (): Promise<ExportTemplatesResult> => {
+    const api = getElectronAPI();
+    return api.feeds.exportTemplates();
+  },
+
+  importTemplate: async (filename: string): Promise<AtomFeed[]> => {
+    const api = getElectronAPI();
+    return api.feeds.importTemplate(filename);
+  },
 };
+
+export interface FeedTemplate {
+  name: string;
+  filename: string;
+  type: string;
+}
+
+export interface ExportTemplatesResult {
+  exported: string[];
+  errors: string[];
+  cancelled: boolean;
+}
 
 export interface FeedDetailDiagnostics {
   adaptiveSyncEnabled: boolean;

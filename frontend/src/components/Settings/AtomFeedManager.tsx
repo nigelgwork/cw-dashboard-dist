@@ -19,8 +19,10 @@ import {
   ChevronDown,
   ChevronUp,
   Link2,
+  Download,
+  Package,
 } from 'lucide-react';
-import { electronFeedsApi, isElectron } from '../../api/electron-api';
+import { electronFeedsApi, isElectron, FeedTemplate } from '../../api/electron-api';
 import { feedsApi } from '../../api/feeds';
 import { AtomFeed, FeedType } from '../../types';
 import { useToast } from '../../context/ToastContext';
@@ -400,8 +402,11 @@ export default function AtomFeedManager() {
   const { showToast } = useToast();
   const [feeds, setFeeds] = useState<AtomFeed[]>([]);
   const [detailFeeds, setDetailFeeds] = useState<AtomFeed[]>([]);
+  const [templates, setTemplates] = useState<FeedTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [importingTemplate, setImportingTemplate] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inElectron = isElectron();
@@ -414,10 +419,19 @@ export default function AtomFeedManager() {
         // Also fetch detail feeds for linking dropdown
         const details = await electronFeedsApi.getDetailFeeds();
         setDetailFeeds(details);
+        // Fetch available templates
+        try {
+          const availableTemplates = await electronFeedsApi.getAvailableTemplates();
+          setTemplates(availableTemplates);
+        } catch {
+          // Templates may not be available
+          setTemplates([]);
+        }
       } else {
         data = await feedsApi.getAll();
         // Filter detail feeds from the full list for web mode
         setDetailFeeds(data.filter(f => f.feedType === 'PROJECT_DETAIL'));
+        setTemplates([]);
       }
       setFeeds(data);
     } catch (err) {
@@ -558,6 +572,46 @@ export default function AtomFeedManager() {
     }
   };
 
+  const handleExportTemplates = async () => {
+    if (!inElectron) return;
+    setExporting(true);
+    try {
+      const result = await electronFeedsApi.exportTemplates();
+      if (result.cancelled) {
+        // User cancelled
+        return;
+      }
+      if (result.exported.length > 0) {
+        showToast('success', `Exported ${result.exported.length} template(s)`);
+      }
+      if (result.errors.length > 0) {
+        showToast('error', result.errors.join(', '));
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to export templates';
+      showToast('error', message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImportTemplate = async (filename: string) => {
+    if (!inElectron) return;
+    setImportingTemplate(filename);
+    try {
+      const imported = await electronFeedsApi.importTemplate(filename);
+      if (imported.length > 0) {
+        showToast('success', `Imported ${imported[0].name} feed`);
+        fetchFeeds();
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to import template';
+      showToast('error', message);
+    } finally {
+      setImportingTemplate(null);
+    }
+  };
+
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(true);
@@ -662,6 +716,66 @@ export default function AtomFeedManager() {
           Supports .atomsvc and .xml files exported from SSRS
         </p>
       </div>
+
+      {/* Feed Templates Section - Only in Electron */}
+      {inElectron && templates.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Package size={18} className="text-purple-400" />
+              <h3 className="text-sm font-medium text-white">Quick Start Templates</h3>
+            </div>
+            <button
+              onClick={handleExportTemplates}
+              disabled={exporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-board-border rounded transition-colors disabled:opacity-50"
+              title="Export templates to share with your team"
+            >
+              {exporting ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Download size={14} />
+              )}
+              Export for Team
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">
+            These pre-configured templates work with your SSRS reports. Import one to quickly set up a feed.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {templates.map((template) => {
+              const TypeIcon = getFeedTypeIcon(template.type as FeedType);
+              const { text: typeColor, bg: typeBgColor } = getFeedTypeColor(template.type as FeedType);
+              const isImporting = importingTemplate === template.filename;
+
+              return (
+                <button
+                  key={template.filename}
+                  onClick={() => handleImportTemplate(template.filename)}
+                  disabled={isImporting || !!importingTemplate}
+                  className={`flex items-center gap-2 p-3 rounded-lg border border-board-border bg-board-panel/50 hover:bg-board-panel hover:border-purple-500/50 transition-colors text-left disabled:opacity-50 ${
+                    isImporting ? 'border-purple-500' : ''
+                  }`}
+                >
+                  <div className={`p-1.5 rounded ${typeBgColor}`}>
+                    {isImporting ? (
+                      <Loader2 size={16} className="text-purple-400 animate-spin" />
+                    ) : (
+                      <TypeIcon size={16} className={typeColor} />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-medium text-white truncate">{template.name}</div>
+                    <div className={`text-[10px] ${typeColor}`}>
+                      {getFeedTypeLabel(template.type as FeedType)}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Feed List */}
       {loading ? (

@@ -3,6 +3,8 @@ import { AtomFeedRow } from '../database/schema';
 import { parseAtomSvcFile } from './atomsvc-parser';
 import { testFeedConnection } from './native-sync';
 import fs from 'fs';
+import path from 'path';
+import { app } from 'electron';
 
 export interface AtomFeed {
   id: number;
@@ -405,4 +407,91 @@ export function getDetailSyncConfigDiagnostics(): {
     detailFeeds,
     linkedPairs,
   };
+}
+
+/**
+ * Get the templates directory path
+ */
+function getTemplatesDir(): string {
+  // In development, templates are in the project root
+  // In production, they're in the resources/templates folder
+  const isDev = !app.isPackaged;
+
+  if (isDev) {
+    return path.join(__dirname, '..', '..', 'templates');
+  } else {
+    return path.join(process.resourcesPath, 'templates');
+  }
+}
+
+/**
+ * Get list of available ATOMSVC templates
+ */
+export function getAvailableTemplates(): { name: string; filename: string; type: string }[] {
+  const templatesDir = getTemplatesDir();
+
+  if (!fs.existsSync(templatesDir)) {
+    console.log(`[Feeds] Templates directory not found: ${templatesDir}`);
+    return [];
+  }
+
+  const files = fs.readdirSync(templatesDir).filter(f => f.endsWith('.atomsvc'));
+
+  return files.map(filename => {
+    // Determine type from filename
+    let type = 'PROJECTS';
+    const lowerName = filename.toLowerCase();
+    if (lowerName.includes('detail')) type = 'PROJECT_DETAIL';
+    else if (lowerName.includes('opportunit')) type = 'OPPORTUNITIES';
+    else if (lowerName.includes('ticket') || lowerName.includes('service')) type = 'SERVICE_TICKETS';
+
+    return {
+      name: filename.replace('.atomsvc', '').replace(/-/g, ' '),
+      filename,
+      type,
+    };
+  });
+}
+
+/**
+ * Export templates to a user-selected directory
+ */
+export async function exportTemplatesToDirectory(destDir: string): Promise<{ exported: string[]; errors: string[] }> {
+  const templatesDir = getTemplatesDir();
+  const exported: string[] = [];
+  const errors: string[] = [];
+
+  if (!fs.existsSync(templatesDir)) {
+    errors.push(`Templates directory not found: ${templatesDir}`);
+    return { exported, errors };
+  }
+
+  const files = fs.readdirSync(templatesDir).filter(f => f.endsWith('.atomsvc'));
+
+  for (const file of files) {
+    try {
+      const srcPath = path.join(templatesDir, file);
+      const destPath = path.join(destDir, file);
+      fs.copyFileSync(srcPath, destPath);
+      exported.push(file);
+    } catch (err) {
+      errors.push(`Failed to copy ${file}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  }
+
+  return { exported, errors };
+}
+
+/**
+ * Read a template file content
+ */
+export function getTemplateContent(filename: string): string | null {
+  const templatesDir = getTemplatesDir();
+  const filePath = path.join(templatesDir, filename);
+
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  return fs.readFileSync(filePath, 'utf-8');
 }

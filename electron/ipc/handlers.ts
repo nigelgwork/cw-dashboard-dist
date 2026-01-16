@@ -198,6 +198,64 @@ export function registerIpcHandlers(): void {
     return feedService.testFetchProjectDetail(projectId);
   });
 
+  ipcMain.handle('feeds:getAvailableTemplates', async () => {
+    return feedService.getAvailableTemplates();
+  });
+
+  ipcMain.handle('feeds:exportTemplates', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(window!, {
+      title: 'Select Folder to Export Templates',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { exported: [], errors: [], cancelled: true };
+    }
+
+    const exportResult = await feedService.exportTemplatesToDirectory(result.filePaths[0]);
+    return { ...exportResult, cancelled: false };
+  });
+
+  ipcMain.handle('feeds:importTemplate', async (_, filename: string) => {
+    const content = feedService.getTemplateContent(filename);
+    if (!content) {
+      throw new Error(`Template not found: ${filename}`);
+    }
+
+    // Parse and import the template
+    const { parseAtomSvcFile } = await import('../services/atomsvc-parser');
+    const parsedFeeds = await parseAtomSvcFile(content);
+
+    const db = (await import('../database/connection')).getDatabase();
+    const importedFeeds: feedService.AtomFeed[] = [];
+
+    for (const feed of parsedFeeds) {
+      // Check if feed URL already exists
+      const existing = db.prepare('SELECT id FROM atom_feeds WHERE feed_url = ?').get(feed.feedUrl) as { id: number } | undefined;
+
+      if (existing) {
+        // Update existing feed
+        db.prepare("UPDATE atom_feeds SET name = ?, feed_type = ?, updated_at = datetime('now') WHERE id = ?").run(
+          feed.name,
+          feed.feedType,
+          existing.id
+        );
+        importedFeeds.push(feedService.getFeedById(existing.id)!);
+      } else {
+        // Insert new feed
+        const result = db.prepare('INSERT INTO atom_feeds (name, feed_type, feed_url) VALUES (?, ?, ?)').run(
+          feed.name,
+          feed.feedType,
+          feed.feedUrl
+        );
+        importedFeeds.push(feedService.getFeedById(result.lastInsertRowid as number)!);
+      }
+    }
+
+    return importedFeeds;
+  });
+
   ipcMain.handle('projects:getDetailSyncDiagnostics', async () => {
     return projectService.getDetailSyncDiagnostics();
   });

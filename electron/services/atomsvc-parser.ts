@@ -106,10 +106,11 @@ export async function parseAtomSvcFile(content: string): Promise<ParsedAtomFeed[
               console.log(`[AtomSvcParser] Detected feed type: ${feedType}`);
 
               // Decode HTML entities first, then clean the URL
-              // For PROJECT_DETAIL feeds, preserve multi-value parameters (don't remove "Select All")
+              // For PROJECT_DETAIL feeds, strip ALL filter parameters (we only need project ID)
+              // For other feeds, strip multi-value "Select All" filter parameters
               const decodedUrl = decodeAtomUrl(href);
-              const preserveMultiValue = feedType === 'PROJECT_DETAIL';
-              const { cleanedUrl, removedParams } = cleanSsrsUrl(decodedUrl, preserveMultiValue);
+              const stripAllFilters = feedType === 'PROJECT_DETAIL';
+              const { cleanedUrl, removedParams } = cleanSsrsUrl(decodedUrl, stripAllFilters);
 
               if (removedParams.length > 0) {
                 console.log(`[AtomSvcParser] Cleaned URL - removed ${removedParams.length} data parameters (${removedParams.join(', ')})`);
@@ -178,6 +179,42 @@ const DATA_PARAMETERS = [
 ];
 
 /**
+ * Parameters that should be REMOVED from feeds when they have many values.
+ * These are "Select All" filter parameters that SSRS exports as individual values.
+ * Stripping them allows the report's defaults to apply (usually "all").
+ */
+const STRIP_FILTER_PARAMETERS = [
+  // Project filters
+  'ProjectStatuses',
+  'ProjectStatus',
+  'ProjectManagers',
+  'ProjectManager',
+  'ProjectSearch',
+  'CompanySearch',
+  'My_Member_ID',
+  'Language',
+  'IncWrittenOff',
+  // Location filters (all feed types)
+  'Locations',
+  'Location',
+  'Division',
+  // Opportunity filters
+  'Sales_Rep',
+  'SalesRep',
+  // Service ticket filters
+  'Company',
+  'Companies',
+  'Status',
+  'Statuses',
+  'Priority',
+  'Priorities',
+  'Board',
+  'Boards',
+  'AssignedTo',
+  'Assigned_To',
+];
+
+/**
  * Maximum number of values for a single parameter before we consider it
  * a "Select All" and remove it entirely. SSRS exports "Select All" as
  * individual values which makes URLs too long.
@@ -223,20 +260,20 @@ const FILTER_PARAMETERS = [
 ];
 
 /**
- * Clean an SSRS ATOM URL by removing data parameters and keeping only filters
+ * Clean an SSRS ATOM URL by removing data parameters and filter bloat
  *
  * SSRS ATOMSVC files often include ALL current parameter values, including
- * specific record IDs (like ProjectID=123). These are "data" not "filters".
+ * specific record IDs (like ProjectID=123) and "Select All" filter expansions.
  *
  * For sync to work properly, we need to:
  * 1. Remove data parameters (specific record IDs)
- * 2. Keep filter parameters (Locations, Status, etc.)
- * 3. Keep SSRS rendering parameters (rs:Command, rs:Format, rc:ItemPath)
+ * 2. Remove filter parameters that have many values (treat as "Select All")
+ * 3. Keep essential parameters (dates, SSRS commands)
  *
  * @param url The SSRS feed URL to clean
- * @param preserveMultiValue If true, don't remove parameters with many values (for detail feeds)
+ * @param stripAllFilters If true, strip ALL filter parameters (for detail feeds)
  */
-export function cleanSsrsUrl(url: string, preserveMultiValue: boolean = false): { cleanedUrl: string; removedParams: string[]; keptParams: string[] } {
+export function cleanSsrsUrl(url: string, stripAllFilters: boolean = false): { cleanedUrl: string; removedParams: string[]; keptParams: string[] } {
   const removedParams: string[] = [];
   const keptParams: string[] = [];
 
@@ -278,12 +315,14 @@ export function cleanSsrsUrl(url: string, preserveMultiValue: boolean = false): 
     // Log parameters with high counts
     for (const [key, count] of Object.entries(paramCounts)) {
       if (count > MAX_PARAMETER_VALUES) {
-        if (preserveMultiValue) {
-          console.log(`[AtomSvcParser] Parameter "${key}" has ${count} values - preserving for detail feed`);
-        } else {
-          console.log(`[AtomSvcParser] Parameter "${key}" has ${count} values (exceeds max ${MAX_PARAMETER_VALUES}) - will be removed as "Select All"`);
-        }
+        console.log(`[AtomSvcParser] Parameter "${key}" has ${count} values (exceeds max ${MAX_PARAMETER_VALUES}) - will be removed as "Select All"`);
       }
+    }
+
+    if (stripAllFilters) {
+      console.log(`[AtomSvcParser] Detail feed mode: will strip ALL filter parameters`);
+    } else {
+      console.log(`[AtomSvcParser] Standard mode: will strip multi-value filter parameters`);
     }
 
     // Second pass: filter parameters
@@ -310,9 +349,22 @@ export function cleanSsrsUrl(url: string, preserveMultiValue: boolean = false): 
         continue;
       }
 
-      // Check if this parameter has too many values (treat as "Select All" and remove)
-      // UNLESS preserveMultiValue is true (for detail feeds that need all filter values)
-      if (!preserveMultiValue && paramCounts[key] > MAX_PARAMETER_VALUES) {
+      // Check if this is a filter parameter that should be stripped
+      const isStripParam = STRIP_FILTER_PARAMETERS.some(sp =>
+        key.toLowerCase() === sp.toLowerCase()
+      );
+
+      // For detail feeds, strip ALL filter parameters
+      // For other feeds, strip filter parameters that have many values (Select All)
+      if (isStripParam) {
+        if (stripAllFilters || paramCounts[key] > MAX_PARAMETER_VALUES) {
+          removedParams.push(key);
+          continue;
+        }
+      }
+
+      // Also remove any parameter that has more than MAX values (even if not in our list)
+      if (paramCounts[key] > MAX_PARAMETER_VALUES) {
         removedParams.push(key);
         continue;
       }
@@ -578,10 +630,11 @@ const PROJECT_ID_PARAMETERS = [
  *
  * Takes a detail feed URL template (from an imported ATOMSVC) and substitutes
  * the project ID parameter with the actual project ID.
+ * Also strips filter parameters that would unnecessarily restrict results.
  *
  * @param detailFeedUrl The detail feed URL template
  * @param projectId The project ID to substitute
- * @returns URL with the project ID substituted
+ * @returns URL with the project ID substituted and filters removed
  */
 export function createDetailFeedUrl(detailFeedUrl: string, projectId: string): string {
   try {
@@ -594,6 +647,7 @@ export function createDetailFeedUrl(detailFeedUrl: string, projectId: string): s
 
     const updatedParts: string[] = [];
     let projectIdFound = false;
+    let strippedParams: string[] = [];
 
     for (const part of parts) {
       if (!part) continue;
@@ -619,6 +673,17 @@ export function createDetailFeedUrl(detailFeedUrl: string, projectId: string): s
         continue;
       }
 
+      // Strip filter parameters that would restrict results unnecessarily
+      const isStripParam = STRIP_FILTER_PARAMETERS.some(sp =>
+        key.toLowerCase() === sp.toLowerCase()
+      );
+      if (isStripParam) {
+        if (!strippedParams.includes(key)) {
+          strippedParams.push(key);
+        }
+        continue; // Skip this parameter
+      }
+
       // Check if this is a project ID parameter
       const isProjectIdParam = PROJECT_ID_PARAMETERS.some(p =>
         p.toLowerCase() === key.toLowerCase()
@@ -631,6 +696,10 @@ export function createDetailFeedUrl(detailFeedUrl: string, projectId: string): s
       } else {
         updatedParts.push(part);
       }
+    }
+
+    if (strippedParams.length > 0) {
+      console.log(`[AtomSvcParser] Stripped ${strippedParams.length} filter params from detail URL: ${strippedParams.join(', ')}`);
     }
 
     if (!projectIdFound) {

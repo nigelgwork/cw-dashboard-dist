@@ -58,6 +58,9 @@ export interface ElectronAPI {
     getDetailFeeds: () => Promise<AtomFeed[]>;
     getDetailSyncDiagnostics: () => Promise<FeedDetailDiagnostics>;
     testFetchProjectDetail: (projectId?: string) => Promise<TestFetchDetailResult>;
+    getAvailableTemplates: () => Promise<FeedTemplate[]>;
+    exportTemplates: () => Promise<ExportTemplatesResult>;
+    importTemplate: (filename: string) => Promise<AtomFeed[]>;
   };
 
   // Settings
@@ -278,6 +281,18 @@ interface TestFetchDetailResult {
   };
 }
 
+interface FeedTemplate {
+  name: string;
+  filename: string;
+  type: string;
+}
+
+interface ExportTemplatesResult {
+  exported: string[];
+  errors: string[];
+  cancelled: boolean;
+}
+
 // Valid channels for events from main process
 const validEventChannels = [
   'sync:progress',
@@ -353,6 +368,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getDetailFeeds: () => ipcRenderer.invoke('feeds:getDetailFeeds'),
     getDetailSyncDiagnostics: () => ipcRenderer.invoke('feeds:getDetailSyncDiagnostics'),
     testFetchProjectDetail: (projectId?: string) => ipcRenderer.invoke('feeds:testFetchProjectDetail', projectId),
+    getAvailableTemplates: () => ipcRenderer.invoke('feeds:getAvailableTemplates'),
+    exportTemplates: () => ipcRenderer.invoke('feeds:exportTemplates'),
+    importTemplate: (filename: string) => ipcRenderer.invoke('feeds:importTemplate', filename),
   },
 
   // Settings
