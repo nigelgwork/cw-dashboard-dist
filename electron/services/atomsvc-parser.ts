@@ -106,10 +106,12 @@ export async function parseAtomSvcFile(content: string): Promise<ParsedAtomFeed[
               console.log(`[AtomSvcParser] Detected feed type: ${feedType}`);
 
               // Decode HTML entities first, then clean the URL
-              // For PROJECT_DETAIL feeds, strip ALL filter parameters (we only need project ID)
+              // For PROJECT_DETAIL and OPPORTUNITIES feeds, strip ALL filter parameters
+              // PROJECT_DETAIL: we only need project ID, not filters
+              // OPPORTUNITIES: Sales_Rep filters cause all reps to be echoed back in data
               // For other feeds, strip multi-value "Select All" filter parameters
               const decodedUrl = decodeAtomUrl(href);
-              const stripAllFilters = feedType === 'PROJECT_DETAIL';
+              const stripAllFilters = feedType === 'PROJECT_DETAIL' || feedType === 'OPPORTUNITIES';
               const { cleanedUrl, removedParams } = cleanSsrsUrl(decodedUrl, stripAllFilters);
 
               if (removedParams.length > 0) {
@@ -320,7 +322,7 @@ export function cleanSsrsUrl(url: string, stripAllFilters: boolean = false): { c
     }
 
     if (stripAllFilters) {
-      console.log(`[AtomSvcParser] Detail feed mode: will strip ALL filter parameters`);
+      console.log(`[AtomSvcParser] Strip-all mode (detail/opportunities): will strip ALL filter parameters`);
     } else {
       console.log(`[AtomSvcParser] Standard mode: will strip multi-value filter parameters`);
     }
