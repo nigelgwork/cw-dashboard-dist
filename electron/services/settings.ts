@@ -85,6 +85,7 @@ export const SettingKeys = {
   ADAPTIVE_SYNC_ENABLED: 'adaptive_sync_enabled',
   PROJECT_DETAIL_VISIBLE_FIELDS: 'project_detail_visible_fields',
   SYNC_LOCATIONS: 'sync_locations', // Comma-separated list of locations to filter by
+  LAST_RUN_VERSION: 'last_run_version', // Track version for auto-sync after update
 } as const;
 
 // Default values

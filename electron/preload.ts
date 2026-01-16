@@ -308,6 +308,7 @@ const validEventChannels = [
   'update:error',
   'feed:sync-started',
   'feed:sync-completed',
+  'app:version-updated', // Sent when app version changes, triggers auto-sync
 ];
 
 // Expose protected methods via context bridge
