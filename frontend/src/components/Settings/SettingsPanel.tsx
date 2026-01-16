@@ -18,7 +18,7 @@ import {
 import AtomFeedManager from './AtomFeedManager';
 import { isElectron, electronUpdatesApi, electronSettingsApi, electronProjectsApi, electronOpportunitiesApi, electronServiceTicketsApi, electronFeedsApi, ProjectDetailDiagnostics, FeedDetailDiagnostics, TestFetchDetailResult } from '../../api/electron-api';
 import { useToast } from '../../context/ToastContext';
-import { getFieldDisplayNameWithCategory, groupFieldsByCategory, sortFieldsByCategory } from '../../utils/detailFieldNames';
+import { getFieldDisplayNameWithCategory, groupFieldsByCategory } from '../../utils/detailFieldNames';
 
 type SettingsTab = 'feeds' | 'sync' | 'detail-fields' | 'data' | 'updates' | 'about';
 
