@@ -927,8 +927,8 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
   const pctValue = Math.round((parseNumber(pctComplete) || 0) * 100 * 10) / 10;
   const notes = `PM: ${projectManager} | WIP: ${wip} | % Complete: ${pctValue}%`;
 
-  // Store raw data for debugging
-  const rawData = JSON.stringify(entry);
+  // Store raw data for debugging - use safe stringify to ensure valid JSON
+  const rawData = safeStringifyEntry(entry);
 
   return {
     external_id: externalId,
@@ -1096,8 +1096,8 @@ function mapOpportunityEntry(entry: AtomEntry, index: number): Record<string, un
     entry.Percent || entry.Pct || entry.Confidence || entry.Win_Rate || entry.WinRate
   );
 
-  // Store raw data for debugging
-  const rawData = JSON.stringify(entry);
+  // Store raw data for debugging - use safe stringify to ensure valid JSON
+  const rawData = safeStringifyEntry(entry);
 
   return {
     external_id: externalId,
@@ -1147,8 +1147,8 @@ function mapServiceTicketEntry(entry: AtomEntry): Record<string, unknown> {
   // Notes
   const notes = cleanHtmlEntities(entry.Notes || entry.Comments || entry.InternalNotes || '');
 
-  // Store raw data for debugging
-  const rawData = JSON.stringify(entry);
+  // Store raw data for debugging - use safe stringify to ensure valid JSON
+  const rawData = safeStringifyEntry(entry);
 
   return {
     external_id: externalId,
@@ -1182,6 +1182,37 @@ function cleanHtmlEntities(str: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .trim();
+}
+
+/**
+ * Safely stringify an entry object for storage
+ * Ensures all values are primitives before serialization
+ */
+function safeStringifyEntry(entry: AtomEntry): string {
+  // Create a clean copy with only string values
+  const clean: Record<string, string> = {};
+  for (const [key, value] of Object.entries(entry)) {
+    if (value === null || value === undefined) {
+      clean[key] = '';
+    } else if (typeof value === 'string') {
+      // Check for [object Object] which indicates a bug
+      if (value === '[object Object]') {
+        clean[key] = ''; // Replace corrupted value with empty string
+      } else {
+        clean[key] = value;
+      }
+    } else if (typeof value === 'object') {
+      // This shouldn't happen if parseAtomFeed worked correctly, but safeguard anyway
+      try {
+        clean[key] = JSON.stringify(value);
+      } catch {
+        clean[key] = '';
+      }
+    } else {
+      clean[key] = String(value);
+    }
+  }
+  return JSON.stringify(clean);
 }
 
 /**

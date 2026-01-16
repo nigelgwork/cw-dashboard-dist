@@ -440,3 +440,93 @@ export function groupFieldsByCategory(fieldNames: string[]): Record<string, stri
 
   return groups;
 }
+
+// Fields that should be formatted as currency (AUD)
+const CURRENCY_FIELDS = new Set([
+  'Quoted', 'Budget', 'Estimated_Cost', 'EstimatedCost', 'Actual_Cost', 'ActualCost',
+  'Committed_Cost', 'CommittedCost', 'Billable', 'Invoiced', 'WIP', 'WIP21',
+  'CIA', 'CIA_Remaining', 'Current_Margin', 'CurrentMargin', 'Variance',
+  'Standing_Margin', 'StandingMargin', 'Standing_Profit', 'StandingProfit',
+  'Time_Billable', 'TimeBillable', 'Products_Billable', 'ProductsBillable',
+  'Expenses_Billable', 'ExpensesBillable', 'Total_Budget', 'TotalBudget',
+  'Planned_Value', 'PlannedValue', 'PV', 'Earned_Value', 'EarnedValue', 'EV',
+  'Actual_Cost_AC', 'AC', 'Schedule_Variance', 'ScheduleVariance', 'SV',
+  'Cost_Variance', 'CostVariance', 'CV', 'Estimate_at_Completion', 'EstimateAtCompletion', 'EAC',
+  'Estimate_to_Complete', 'EstimateToComplete', 'ETC', 'Variance_at_Completion', 'VarianceAtCompletion', 'VAC',
+  'Unit_Cost', 'UnitCost', 'Total_Cost', 'TotalCost', 'Expense_Cost', 'ExpenseCost',
+  'Billable_Amt', 'BillableAmt', 'Non_Billable_Amt', 'NonBillableAmt',
+  'Invoice_Amount', 'InvoiceAmount', 'Service_Amount', 'ServiceAmount',
+  'Hardware_Amount', 'HardwareAmount', 'Down_Payment', 'DownPayment',
+  'Estimated_Costs', 'EstimatedCosts', 'Labour_Cost', 'LabourCost',
+  'Material_Cost', 'MaterialCost', 'Actual_Revenue', 'ActualRevenue',
+  'Estimated_Revenue', 'EstimatedRevenue', 'Est_Cost_to_Complete',
+  'Budget_Margin', 'BudgetMargin', 'Avg_Hr_Cost', 'AvgHrCost', 'Average_Hour_Cost',
+]);
+
+// Fields that should be formatted as percentages
+const PERCENTAGE_FIELDS = new Set([
+  'Pct_Complete', 'PctComplete', 'Percent_Complete', 'Pct_Cost_Used', 'PctCostUsed',
+  'Pct_Invoiced', 'PctInvoiced', 'Pct_Used', 'PctUsed',
+  'Schedule_Performance_Index', 'SchedulePerformanceIndex', 'SPI',
+  'Cost_Price_Index', 'CostPriceIndex', 'CPI',
+  'To_Complete_Performance_Index', 'ToCompletePerformanceIndex', 'TCPI',
+]);
+
+// Fields that should be formatted as hours
+const HOURS_FIELDS = new Set([
+  'Estimated_Hours', 'EstimatedHours', 'Hours_Budget', 'HoursBudget',
+  'Actual_Hours', 'ActualHours', 'Hours_Actual', 'HoursActual',
+  'Hours_Remaining', 'HoursRemaining', 'Time',
+]);
+
+/**
+ * Format a detail field value based on its field name
+ * Applies appropriate formatting for currency, percentages, hours, etc.
+ */
+export function formatDetailFieldValue(rawFieldName: string, value: string): string {
+  if (!value || value === '') return 'N/A';
+
+  const { baseName } = parseFieldName(rawFieldName);
+
+  // Try to parse as a number
+  const numValue = parseFloat(value.replace(/[$,]/g, ''));
+  const isNumeric = !isNaN(numValue);
+
+  // Currency fields - format as AUD with 2 decimal places
+  if (CURRENCY_FIELDS.has(baseName) && isNumeric) {
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: 'AUD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(numValue);
+  }
+
+  // Percentage fields - format as percentage
+  if (PERCENTAGE_FIELDS.has(baseName) && isNumeric) {
+    // If value is already > 1, treat as percentage value
+    // If value is <= 1, treat as decimal (multiply by 100)
+    const pctValue = numValue > 1 ? numValue : numValue * 100;
+    return `${pctValue.toFixed(1)}%`;
+  }
+
+  // Hours fields - format with 'h' suffix
+  if (HOURS_FIELDS.has(baseName) && isNumeric) {
+    return `${Math.round(numValue)}h`;
+  }
+
+  // Quantity fields - format as integer if whole number, otherwise 2 decimal places
+  if (baseName.includes('Quantity') || baseName.includes('Qty') || baseName === 'Received') {
+    if (isNumeric) {
+      return Number.isInteger(numValue) ? numValue.toString() : numValue.toFixed(2);
+    }
+  }
+
+  // For other numeric values, format with max 2 decimal places if it has excessive decimals
+  if (isNumeric && value.includes('.') && value.split('.')[1]?.length > 2) {
+    return numValue.toFixed(2);
+  }
+
+  // Return value as-is for non-numeric or already formatted values
+  return value;
+}
