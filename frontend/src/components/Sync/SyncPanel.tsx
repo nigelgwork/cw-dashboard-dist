@@ -269,7 +269,7 @@ export default function SyncPanel() {
     fetchData();
   }, [fetchData]);
 
-  // Fetch listener status periodically (only in web/Docker mode, not Electron)
+  // Fetch listener status periodically (only in web mode, not Electron)
   useEffect(() => {
     if (isElectronApp) {
       // In Electron, we don't have a listener - syncs run directly

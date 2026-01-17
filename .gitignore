@@ -1,21 +1,11 @@
 # Dependencies
 node_modules/
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
-.venv/
 
 # Build outputs
 dist/
 build/
 dist-electron/
 release/
-*.egg-info/
-.eggs/
 
 # Environment files
 .env
@@ -30,20 +20,9 @@ release/
 *~
 .DS_Store
 
-# Testing
-.coverage
-htmlcov/
-.pytest_cache/
-.tox/
-coverage.xml
-*.cover
-
 # Logs
 *.log
 logs/
-
-# Docker
-*.log
 
 # Database
 *.db
