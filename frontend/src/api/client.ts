@@ -1,3 +1,10 @@
+/**
+ * HTTP Client for Web Mode
+ *
+ * This client is used as a fallback when the app runs in browser mode (development).
+ * In production Electron mode, these APIs are not used - IPC is used instead.
+ */
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 interface RequestOptions extends RequestInit {

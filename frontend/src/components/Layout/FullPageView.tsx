@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FolderKanban, TrendingUp, Ticket, Search, Filter, List, LayoutGrid, Code, Settings } from 'lucide-react';
+import { FolderKanban, TrendingUp, Ticket } from 'lucide-react';
 import { Project, Opportunity, ServiceTicket } from '../../types';
 import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron, settings } from '../../api';
 import { useWebSocket } from '../../context/WebSocketContext';
@@ -7,6 +7,9 @@ import ProjectCard from '../Project/ProjectCard';
 import OpportunityCard from '../Opportunity/OpportunityCard';
 import ServiceTicketCard from '../ServiceTicket/ServiceTicketCard';
 import DetailFieldsModal from '../Project/DetailFieldsModal';
+import FullPageViewHeader, { ViewMode } from './FullPageViewHeader';
+import { ProjectFilters, OpportunityFilters, ServiceTicketFilters } from './FilterBar';
+import { ProjectRawDataView, OpportunityRawDataView, ServiceTicketRawDataView } from './RawDataView';
 
 // Setting key for visible detail fields
 const PROJECT_DETAIL_VISIBLE_FIELDS_KEY = 'project_detail_visible_fields';
@@ -26,16 +29,11 @@ const parsePMFromNotes = (notes: string | undefined): string | null => {
   return match ? match[1].trim() : null;
 };
 
-// Safely parse and format raw JSON data
-const formatRawData = (rawData: string | null | undefined): string => {
-  if (!rawData) return 'No raw data available - sync again to populate';
-  try {
-    return JSON.stringify(JSON.parse(rawData), null, 2);
-  } catch {
-    // If JSON parsing fails, show the raw string with error message
-    return `[Invalid JSON - displaying raw string]\n\n${rawData}`;
-  }
-};
+const TYPE_CONFIG = {
+  projects: { icon: FolderKanban, color: 'bg-purple-500', label: 'Projects' },
+  opportunities: { icon: TrendingUp, color: 'bg-emerald-500', label: 'Opportunities' },
+  'service-tickets': { icon: Ticket, color: 'bg-orange-500', label: 'Service Tickets' },
+} as const;
 
 export default function FullPageView({ type, isPinned, togglePin }: FullPageViewProps) {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -46,8 +44,8 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   const [showFilters, setShowFilters] = useState(false);
   const { lastMessage } = useWebSocket();
 
-  // View mode toggle: 'detailed' | 'compact' | 'raw'
-  const [viewMode, setViewMode] = useState<'detailed' | 'compact' | 'raw'>('detailed');
+  // View mode toggle
+  const [viewMode, setViewMode] = useState<ViewMode>('detailed');
 
   // Project-specific filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -217,25 +215,14 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
     : type === 'opportunities'
     ? filteredOpportunities
     : filteredServiceTickets;
+
   const totalCount = type === 'projects'
     ? projects.length
     : type === 'opportunities'
     ? opportunities.length
     : serviceTickets.length;
 
-  const getTypeConfig = () => {
-    switch (type) {
-      case 'projects':
-        return { icon: FolderKanban, color: 'bg-purple-500', label: 'Projects' };
-      case 'opportunities':
-        return { icon: TrendingUp, color: 'bg-emerald-500', label: 'Opportunities' };
-      case 'service-tickets':
-        return { icon: Ticket, color: 'bg-orange-500', label: 'Service Tickets' };
-    }
-  };
-
-  const config = getTypeConfig();
-  const Icon = config.icon;
+  const config = TYPE_CONFIG[type];
 
   if (loading) {
     return (
@@ -248,169 +235,58 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   return (
     <div className="h-[calc(100vh-56px)] flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-board-panel border-b border-board-border flex-shrink-0">
-        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${config.color}`}>
-          <Icon size={16} className="text-white" />
-          <span className="text-white font-semibold">{config.label}</span>
-          <span className="text-white/80 text-sm">
-            {items.length}{hasActiveFilters ? `/${totalCount}` : ''}
-          </span>
-        </div>
-
-        {/* View mode toggle */}
-        <div className="flex items-center bg-board-bg border border-board-border rounded-lg overflow-hidden">
-          <button
-            onClick={() => setViewMode('detailed')}
-            className={`p-2 transition-colors ${viewMode === 'detailed' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
-            title="Detailed view"
-          >
-            <LayoutGrid size={18} />
-          </button>
-          <button
-            onClick={() => setViewMode('compact')}
-            className={`p-2 transition-colors ${viewMode === 'compact' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
-            title="Compact view"
-          >
-            <List size={18} />
-          </button>
-          <button
-            onClick={() => setViewMode('raw')}
-            className={`p-2 transition-colors ${viewMode === 'raw' ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white'}`}
-            title="Raw data view"
-          >
-            <Code size={18} />
-          </button>
-        </div>
-
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className={`p-2 rounded transition-colors ${showFilters || hasActiveFilters ? 'bg-blue-500/20 text-blue-400' : 'text-gray-400 hover:text-white hover:bg-board-border'}`}
-          title="Toggle filters"
-        >
-          <Filter size={18} />
-        </button>
-
-        {/* Detail Fields Settings - Only for Projects */}
-        {type === 'projects' && isElectron() && (
-          <button
-            onClick={() => setShowDetailFieldsModal(true)}
-            className="p-2 rounded text-gray-400 hover:text-white hover:bg-board-border transition-colors"
-            title="Configure detail fields"
-          >
-            <Settings size={18} />
-          </button>
-        )}
-
-        {/* Search */}
-        <div className="relative flex-1 max-w-md">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-          <input
-            type="text"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            placeholder={`Search ${config.label.toLowerCase()}...`}
-            className="w-full pl-10 pr-4 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-      </div>
+      <FullPageViewHeader
+        icon={config.icon}
+        color={config.color}
+        label={config.label}
+        itemCount={items.length}
+        totalCount={totalCount}
+        hasActiveFilters={hasActiveFilters}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        showFilters={showFilters}
+        onToggleFilters={() => setShowFilters(!showFilters)}
+        searchText={searchText}
+        onSearchChange={setSearchText}
+        showDetailSettings={type === 'projects'}
+        onOpenDetailSettings={() => setShowDetailFieldsModal(true)}
+      />
 
       {/* Filters */}
       {showFilters && (
         <div className="px-4 py-3 bg-board-panel border-b border-board-border flex items-center gap-3 flex-shrink-0">
           {type === 'projects' && (
-            <>
-              {/* Status filter */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white focus:outline-none focus:border-purple-500"
-              >
-                <option value="">All Statuses ({projectStatuses.length})</option>
-                {projectStatuses.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-
-              {/* PM filter */}
-              <select
-                value={pmFilter}
-                onChange={(e) => setPmFilter(e.target.value)}
-                className="px-3 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white focus:outline-none focus:border-purple-500"
-              >
-                <option value="">All PMs ({allPMs.length})</option>
-                {allPMs.map(pm => (
-                  <option key={pm} value={pm}>{pm}</option>
-                ))}
-              </select>
-            </>
+            <ProjectFilters
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              projectStatuses={projectStatuses}
+              pmFilter={pmFilter}
+              setPmFilter={setPmFilter}
+              allPMs={allPMs}
+            />
           )}
-
           {type === 'opportunities' && (
-            <>
-              {/* Stage filter */}
-              <select
-                value={stageFilter}
-                onChange={(e) => setStageFilter(e.target.value)}
-                className="px-3 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white focus:outline-none focus:border-emerald-500"
-              >
-                <option value="">All Stages ({stages.length})</option>
-                {stages.map(stage => (
-                  <option key={stage} value={stage}>{stage}</option>
-                ))}
-              </select>
-
-              {/* Sales rep filter */}
-              <select
-                value={salesRepFilter}
-                onChange={(e) => setSalesRepFilter(e.target.value)}
-                className="px-3 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white focus:outline-none focus:border-emerald-500"
-              >
-                <option value="">All Sales Reps ({salesReps.length})</option>
-                {salesReps.map(rep => (
-                  <option key={rep} value={rep}>{rep}</option>
-                ))}
-              </select>
-            </>
+            <OpportunityFilters
+              stageFilter={stageFilter}
+              setStageFilter={setStageFilter}
+              stages={stages}
+              salesRepFilter={salesRepFilter}
+              setSalesRepFilter={setSalesRepFilter}
+              salesReps={salesReps}
+            />
           )}
-
           {type === 'service-tickets' && (
-            <>
-              {/* Status filter */}
-              <select
-                value={ticketStatusFilter}
-                onChange={(e) => setTicketStatusFilter(e.target.value)}
-                className="px-3 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white focus:outline-none focus:border-orange-500"
-              >
-                <option value="">All Statuses ({ticketStatuses.length})</option>
-                {ticketStatuses.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
-
-              {/* Priority filter */}
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="px-3 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white focus:outline-none focus:border-orange-500"
-              >
-                <option value="">All Priorities ({priorities.length})</option>
-                {priorities.map(priority => (
-                  <option key={priority} value={priority}>{priority}</option>
-                ))}
-              </select>
-
-              {/* Assignee filter */}
-              <select
-                value={assigneeFilter}
-                onChange={(e) => setAssigneeFilter(e.target.value)}
-                className="px-3 py-2 text-sm bg-board-bg border border-board-border rounded-lg text-white focus:outline-none focus:border-orange-500"
-              >
-                <option value="">All Assignees ({assignees.length})</option>
-                {assignees.map(assignee => (
-                  <option key={assignee} value={assignee}>{assignee}</option>
-                ))}
-              </select>
-            </>
+            <ServiceTicketFilters
+              ticketStatusFilter={ticketStatusFilter}
+              setTicketStatusFilter={setTicketStatusFilter}
+              ticketStatuses={ticketStatuses}
+              priorityFilter={priorityFilter}
+              setPriorityFilter={setPriorityFilter}
+              priorities={priorities}
+              assigneeFilter={assigneeFilter}
+              setAssigneeFilter={setAssigneeFilter}
+              assignees={assignees}
+            />
           )}
         </div>
       )}
@@ -422,50 +298,12 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
             {hasActiveFilters ? `No matching ${config.label.toLowerCase()}` : `No ${config.label.toLowerCase()}`}
           </div>
         ) : viewMode === 'raw' ? (
-          /* Raw data view - shows JSON for each item */
-          <div className="space-y-2">
-            {type === 'projects' && filteredProjects.map((project) => (
-              <div key={project.id} className="bg-board-bg border border-board-border rounded p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-white">{project.clientName} - {project.projectName}</span>
-                  <span className="text-xs text-gray-500">ID: {project.externalId}</span>
-                </div>
-                <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
-                  {formatRawData(project.rawData)}
-                </pre>
-                {project.detailRawData && (
-                  <>
-                    <div className="text-xs text-purple-400 mt-3 mb-1 font-medium">Detail Data:</div>
-                    <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
-                      {formatRawData(project.detailRawData)}
-                    </pre>
-                  </>
-                )}
-              </div>
-            ))}
-            {type === 'opportunities' && filteredOpportunities.map((opportunity) => (
-              <div key={opportunity.id} className="bg-board-bg border border-board-border rounded p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-white">{opportunity.companyName} - {opportunity.opportunityName}</span>
-                  <span className="text-xs text-gray-500">ID: {opportunity.id}</span>
-                </div>
-                <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
-                  {formatRawData(opportunity.rawData)}
-                </pre>
-              </div>
-            ))}
-            {type === 'service-tickets' && filteredServiceTickets.map((ticket) => (
-              <div key={ticket.id} className="bg-board-bg border border-board-border rounded p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-white">{ticket.companyName} - {ticket.summary}</span>
-                  <span className="text-xs text-gray-500">ID: {ticket.id}</span>
-                </div>
-                <pre className="text-xs text-gray-300 bg-gray-900 p-2 rounded overflow-x-auto max-h-64 overflow-y-auto">
-                  {formatRawData(ticket.rawData)}
-                </pre>
-              </div>
-            ))}
-          </div>
+          /* Raw data view */
+          <>
+            {type === 'projects' && <ProjectRawDataView projects={filteredProjects} />}
+            {type === 'opportunities' && <OpportunityRawDataView opportunities={filteredOpportunities} />}
+            {type === 'service-tickets' && <ServiceTicketRawDataView tickets={filteredServiceTickets} />}
+          </>
         ) : (
           /* Normal card view */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-3">

@@ -1,6 +1,6 @@
 {
   "name": "cw-dashboard",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "CW Dashboard - ConnectWise Project and Opportunity Tracker",
   "main": "dist-electron/main.js",
   "author": "Gaskony",
@@ -28,8 +28,8 @@
     "@types/node": "^22.10.5",
     "@types/xml2js": "^0.4.14",
     "concurrently": "^9.1.2",
-    "electron": "^33.3.1",
-    "electron-builder": "^25.1.8",
+    "electron": "^35.7.5",
+    "electron-builder": "^26.4.0",
     "typescript": "^5.7.2",
     "wait-on": "^8.0.1"
   },
@@ -48,7 +48,9 @@
       {
         "from": "templates",
         "to": "templates",
-        "filter": ["**/*.atomsvc"]
+        "filter": [
+          "**/*.atomsvc"
+        ]
       }
     ],
     "win": {

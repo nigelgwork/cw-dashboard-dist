@@ -4,6 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import { createTablesSQL, defaultSettings, SCHEMA_VERSION } from './schema';
 
+const MAX_BACKUPS = 3; // Keep only the last 3 backups
+
 let db: Database.Database | null = null;
 
 /**
@@ -12,6 +14,62 @@ let db: Database.Database | null = null;
 export function getDatabasePath(): string {
   const userDataPath = app.getPath('userData');
   return path.join(userDataPath, 'cw-dashboard.db');
+}
+
+/**
+ * Get the backup directory path
+ */
+function getBackupDir(): string {
+  const userDataPath = app.getPath('userData');
+  return path.join(userDataPath, 'backups');
+}
+
+/**
+ * Create a backup of the database before migrations
+ * Keeps only the last MAX_BACKUPS backups
+ */
+function createDatabaseBackup(): void {
+  const dbPath = getDatabasePath();
+
+  if (!fs.existsSync(dbPath)) {
+    console.log('[Database] No existing database to backup');
+    return;
+  }
+
+  const backupDir = getBackupDir();
+
+  // Ensure backup directory exists
+  if (!fs.existsSync(backupDir)) {
+    fs.mkdirSync(backupDir, { recursive: true });
+  }
+
+  // Create timestamped backup filename
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupPath = path.join(backupDir, `cw-dashboard-${timestamp}.db`);
+
+  try {
+    // Copy database file
+    fs.copyFileSync(dbPath, backupPath);
+    console.log(`[Database] Created backup: ${backupPath}`);
+
+    // Clean up old backups (keep only MAX_BACKUPS)
+    const backups = fs.readdirSync(backupDir)
+      .filter(f => f.startsWith('cw-dashboard-') && f.endsWith('.db'))
+      .sort()
+      .reverse();
+
+    if (backups.length > MAX_BACKUPS) {
+      const toDelete = backups.slice(MAX_BACKUPS);
+      for (const backup of toDelete) {
+        const backupFile = path.join(backupDir, backup);
+        fs.unlinkSync(backupFile);
+        console.log(`[Database] Deleted old backup: ${backup}`);
+      }
+    }
+  } catch (error) {
+    console.error('[Database] Failed to create backup:', error);
+    // Don't fail migration just because backup failed
+  }
 }
 
 /**
@@ -97,6 +155,9 @@ async function runMigrations(): Promise<void> {
 
   if (currentVersion < SCHEMA_VERSION) {
     console.log(`Migrating database from version ${currentVersion} to ${SCHEMA_VERSION}`);
+
+    // Create backup before migration
+    createDatabaseBackup();
 
     // Run migrations for each version
     for (let v = currentVersion + 1; v <= SCHEMA_VERSION; v++) {

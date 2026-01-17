@@ -17,9 +17,9 @@ describe('formatCurrency', () => {
     expect(formatCurrency(1234567.89)).toBe('$1,234,568');
   });
 
-  it('returns dash for null/undefined', () => {
-    expect(formatCurrency(null)).toBe('-');
-    expect(formatCurrency(undefined)).toBe('-');
+  it('returns N/A for null/undefined', () => {
+    expect(formatCurrency(null)).toBe('N/A');
+    expect(formatCurrency(undefined)).toBe('N/A');
   });
 
   it('handles zero', () => {
@@ -39,9 +39,9 @@ describe('formatHours', () => {
     expect(formatHours(10.4)).toBe('10h');
   });
 
-  it('returns dash for null/undefined', () => {
-    expect(formatHours(null)).toBe('-');
-    expect(formatHours(undefined)).toBe('-');
+  it('returns N/A for null/undefined', () => {
+    expect(formatHours(null)).toBe('N/A');
+    expect(formatHours(undefined)).toBe('N/A');
   });
 });
 
@@ -53,9 +53,9 @@ describe('formatPercent', () => {
     expect(formatPercent(33.33)).toBe('33.3%'); // Max 1 decimal
   });
 
-  it('returns dash for null/undefined', () => {
-    expect(formatPercent(null)).toBe('-');
-    expect(formatPercent(undefined)).toBe('-');
+  it('returns N/A for null/undefined', () => {
+    expect(formatPercent(null)).toBe('N/A');
+    expect(formatPercent(undefined)).toBe('N/A');
   });
 });
 
@@ -67,9 +67,9 @@ describe('formatDate', () => {
     expect(result).toContain('2025');
   });
 
-  it('returns dash for null/undefined', () => {
-    expect(formatDate(null)).toBe('-');
-    expect(formatDate(undefined)).toBe('-');
+  it('returns N/A for null/undefined', () => {
+    expect(formatDate(null)).toBe('N/A');
+    expect(formatDate(undefined)).toBe('N/A');
   });
 
   it('formats different years correctly', () => {

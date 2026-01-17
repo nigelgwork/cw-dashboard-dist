@@ -6,6 +6,14 @@ import * as syncService from '../services/sync';
 import * as feedService from '../services/feeds';
 import * as settingsService from '../services/settings';
 import * as autoUpdaterService from '../services/auto-updater';
+import {
+  validateId,
+  validateString,
+  validateSyncType,
+  validateQueryOptions,
+  validateFeedUpdateOptions,
+  validateSettingKey,
+} from './validation';
 
 /**
  * Register all IPC handlers for communication with renderer process
@@ -15,15 +23,15 @@ export function registerIpcHandlers(): void {
   // Projects
   // ============================================
   ipcMain.handle('projects:getAll', async (_, options) => {
-    return projectService.getAll(options);
+    return projectService.getAll(validateQueryOptions(options));
   });
 
-  ipcMain.handle('projects:getById', async (_, id: number) => {
-    return projectService.getById(id);
+  ipcMain.handle('projects:getById', async (_, id: unknown) => {
+    return projectService.getById(validateId(id));
   });
 
-  ipcMain.handle('projects:getByExternalId', async (_, externalId: string) => {
-    return projectService.getByExternalId(externalId);
+  ipcMain.handle('projects:getByExternalId', async (_, externalId: unknown) => {
+    return projectService.getByExternalId(validateString(externalId, 'externalId'));
   });
 
   ipcMain.handle('projects:clearAll', async () => {
@@ -42,15 +50,15 @@ export function registerIpcHandlers(): void {
   // Opportunities
   // ============================================
   ipcMain.handle('opportunities:getAll', async (_, options) => {
-    return opportunityService.getAll(options);
+    return opportunityService.getAll(validateQueryOptions(options));
   });
 
-  ipcMain.handle('opportunities:getById', async (_, id: number) => {
-    return opportunityService.getById(id);
+  ipcMain.handle('opportunities:getById', async (_, id: unknown) => {
+    return opportunityService.getById(validateId(id));
   });
 
-  ipcMain.handle('opportunities:getByExternalId', async (_, externalId: string) => {
-    return opportunityService.getByExternalId(externalId);
+  ipcMain.handle('opportunities:getByExternalId', async (_, externalId: unknown) => {
+    return opportunityService.getByExternalId(validateString(externalId, 'externalId'));
   });
 
   ipcMain.handle('opportunities:getStages', async () => {
@@ -69,15 +77,15 @@ export function registerIpcHandlers(): void {
   // Service Tickets
   // ============================================
   ipcMain.handle('serviceTickets:getAll', async (_, options) => {
-    return serviceTicketService.getAll(options);
+    return serviceTicketService.getAll(validateQueryOptions(options));
   });
 
-  ipcMain.handle('serviceTickets:getById', async (_, id: number) => {
-    return serviceTicketService.getById(id);
+  ipcMain.handle('serviceTickets:getById', async (_, id: unknown) => {
+    return serviceTicketService.getById(validateId(id));
   });
 
-  ipcMain.handle('serviceTickets:getByExternalId', async (_, externalId: string) => {
-    return serviceTicketService.getByExternalId(externalId);
+  ipcMain.handle('serviceTickets:getByExternalId', async (_, externalId: unknown) => {
+    return serviceTicketService.getByExternalId(validateString(externalId, 'externalId'));
   });
 
   ipcMain.handle('serviceTickets:getStatuses', async () => {
@@ -107,9 +115,9 @@ export function registerIpcHandlers(): void {
   // ============================================
   // Sync
   // ============================================
-  ipcMain.handle('sync:request', async (event, syncType: string) => {
+  ipcMain.handle('sync:request', async (event, syncType: unknown) => {
     const window = BrowserWindow.fromWebContents(event.sender);
-    return syncService.requestSync(syncType as 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'ALL', window);
+    return syncService.requestSync(validateSyncType(syncType), window);
   });
 
   ipcMain.handle('sync:getStatus', async () => {
@@ -117,15 +125,15 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('sync:getHistory', async (_, options) => {
-    return syncService.getHistory(options);
+    return syncService.getHistory(validateQueryOptions(options));
   });
 
-  ipcMain.handle('sync:getChanges', async (_, syncHistoryId: number) => {
-    return syncService.getChanges(syncHistoryId);
+  ipcMain.handle('sync:getChanges', async (_, syncHistoryId: unknown) => {
+    return syncService.getChanges(validateId(syncHistoryId, 'syncHistoryId'));
   });
 
-  ipcMain.handle('sync:cancel', async (_, syncId: number) => {
-    return syncService.cancelSync(syncId);
+  ipcMain.handle('sync:cancel', async (_, syncId: unknown) => {
+    return syncService.cancelSync(validateId(syncId, 'syncId'));
   });
 
   ipcMain.handle('sync:clearHistory', async () => {
@@ -139,8 +147,8 @@ export function registerIpcHandlers(): void {
     return feedService.getAllFeeds();
   });
 
-  ipcMain.handle('feeds:import', async (_, filePath: string) => {
-    return feedService.importFeed(filePath);
+  ipcMain.handle('feeds:import', async (_, filePath: unknown) => {
+    return feedService.importFeed(validateString(filePath, 'filePath'));
   });
 
   ipcMain.handle('feeds:importFromDialog', async (event) => {
@@ -166,24 +174,24 @@ export function registerIpcHandlers(): void {
     return importedFeeds;
   });
 
-  ipcMain.handle('feeds:delete', async (_, feedId: number) => {
-    return feedService.deleteFeed(feedId);
+  ipcMain.handle('feeds:delete', async (_, feedId: unknown) => {
+    return feedService.deleteFeed(validateId(feedId, 'feedId'));
   });
 
-  ipcMain.handle('feeds:test', async (_, feedId: number) => {
-    return feedService.testFeed(feedId);
+  ipcMain.handle('feeds:test', async (_, feedId: unknown) => {
+    return feedService.testFeed(validateId(feedId, 'feedId'));
   });
 
-  ipcMain.handle('feeds:update', async (_, feedId: number, updates: { name?: string; feedType?: 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS' | 'PROJECT_DETAIL' }) => {
-    return feedService.updateFeed(feedId, updates);
+  ipcMain.handle('feeds:update', async (_, feedId: unknown, updates: unknown) => {
+    return feedService.updateFeed(validateId(feedId, 'feedId'), validateFeedUpdateOptions(updates));
   });
 
-  ipcMain.handle('feeds:linkDetail', async (_, summaryFeedId: number, detailFeedId: number) => {
-    return feedService.linkDetailFeed(summaryFeedId, detailFeedId);
+  ipcMain.handle('feeds:linkDetail', async (_, summaryFeedId: unknown, detailFeedId: unknown) => {
+    return feedService.linkDetailFeed(validateId(summaryFeedId, 'summaryFeedId'), validateId(detailFeedId, 'detailFeedId'));
   });
 
-  ipcMain.handle('feeds:unlinkDetail', async (_, summaryFeedId: number) => {
-    return feedService.unlinkDetailFeed(summaryFeedId);
+  ipcMain.handle('feeds:unlinkDetail', async (_, summaryFeedId: unknown) => {
+    return feedService.unlinkDetailFeed(validateId(summaryFeedId, 'summaryFeedId'));
   });
 
   ipcMain.handle('feeds:getDetailFeeds', async () => {
@@ -194,8 +202,8 @@ export function registerIpcHandlers(): void {
     return feedService.getDetailSyncConfigDiagnostics();
   });
 
-  ipcMain.handle('feeds:testFetchProjectDetail', async (_, projectId?: string) => {
-    return feedService.testFetchProjectDetail(projectId);
+  ipcMain.handle('feeds:testFetchProjectDetail', async (_, projectId?: unknown) => {
+    return feedService.testFetchProjectDetail(projectId !== undefined ? validateString(projectId, 'projectId') : undefined);
   });
 
   ipcMain.handle('feeds:getAvailableTemplates', async () => {
@@ -217,8 +225,9 @@ export function registerIpcHandlers(): void {
     return { ...exportResult, cancelled: false };
   });
 
-  ipcMain.handle('feeds:importTemplate', async (_, filename: string) => {
-    const content = feedService.getTemplateContent(filename);
+  ipcMain.handle('feeds:importTemplate', async (_, filename: unknown) => {
+    const validFilename = validateString(filename, 'filename');
+    const content = feedService.getTemplateContent(validFilename);
     if (!content) {
       throw new Error(`Template not found: ${filename}`);
     }
@@ -263,12 +272,12 @@ export function registerIpcHandlers(): void {
   // ============================================
   // Settings
   // ============================================
-  ipcMain.handle('settings:get', async (_, key: string) => {
-    return settingsService.getSetting(key);
+  ipcMain.handle('settings:get', async (_, key: unknown) => {
+    return settingsService.getSetting(validateSettingKey(key));
   });
 
-  ipcMain.handle('settings:set', async (_, key: string, value: string) => {
-    return settingsService.setSetting(key, value);
+  ipcMain.handle('settings:set', async (_, key: unknown, value: unknown) => {
+    return settingsService.setSetting(validateSettingKey(key), validateString(value, 'value'));
   });
 
   ipcMain.handle('settings:getAll', async () => {
@@ -303,8 +312,12 @@ export function registerIpcHandlers(): void {
     return autoUpdaterService.getCurrentVersion();
   });
 
-  ipcMain.handle('updates:setGitHubToken', async (_, token: string | null) => {
-    autoUpdaterService.setGitHubToken(token);
+  ipcMain.handle('updates:setGitHubToken', async (_, token: unknown) => {
+    if (token !== null && token !== undefined) {
+      autoUpdaterService.setGitHubToken(validateString(token, 'token'));
+    } else {
+      autoUpdaterService.setGitHubToken(null);
+    }
   });
 
   ipcMain.handle('updates:getGitHubTokenStatus', async () => {
