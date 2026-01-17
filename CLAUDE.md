@@ -42,7 +42,7 @@ npm run dist:win
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React 18, TypeScript 5, Vite 5, Tailwind CSS 3 |
+| Frontend | React 19, TypeScript 5, Vite 7, Tailwind CSS 4 |
 | Desktop | Electron 33, electron-builder |
 | Database | SQLite (better-sqlite3) |
 | Icons | Lucide React |
@@ -59,13 +59,15 @@ npm run dist:win
 │   ├── database/        # SQLite schema & connection
 │   ├── ipc/             # IPC handlers
 │   └── services/        # Business logic
-│       ├── native-sync.ts    # ATOM feed sync
+│       ├── native-sync.ts    # ATOM feed fetching & parsing
+│       ├── sync.ts           # Sync orchestration
 │       ├── projects.ts       # Project CRUD
 │       ├── opportunities.ts  # Opportunity CRUD
 │       ├── service-tickets.ts # Service ticket CRUD
-│       ├── feeds.ts          # Feed management
+│       ├── feeds.ts          # Feed management & templates
 │       ├── settings.ts       # App settings
-│       └── auto-updater.ts   # GitHub updates
+│       ├── auto-updater.ts   # GitHub updates
+│       └── atomsvc-parser.ts # .atomsvc file parser
 ├── frontend/            # React frontend
 │   ├── src/
 │   │   ├── api/         # API clients (Electron IPC)
@@ -73,6 +75,11 @@ npm run dist:win
 │   │   ├── context/     # React contexts
 │   │   └── types/       # TypeScript types
 │   └── index.html
+├── templates/           # Bundled ATOMSVC templates
+│   ├── Project-Summary.atomsvc
+│   ├── Project-Detail.atomsvc
+│   ├── Opportunities.atomsvc
+│   └── Service-Tickets.atomsvc
 └── resources/           # App icons
 ```
 
@@ -81,6 +88,8 @@ npm run dist:win
 - **Dashboard view** - Pinned projects and opportunities for quick access
 - **Full-page views** - Grid layout with filtering and search
 - **ATOM Feed Sync** - Import .atomsvc files, sync via Windows Auth
+- **Adaptive Sync** - PROJECT_DETAIL feeds for granular project data
+- **Templates** - Bundled .atomsvc templates for quick setup
 - **Offline-first** - All data stored locally in SQLite
 - **Auto-updates** - Check for updates from GitHub Releases
 - **Service tickets** - Track support tickets alongside projects
@@ -90,23 +99,43 @@ npm run dist:win
 The app syncs data from SSRS ATOM feeds:
 
 1. **Import Feed** - Settings → Data Feeds → Import .atomsvc file
-2. **Test Connection** - Validates feed URL and Windows Auth
-3. **Manual Sync** - Click sync button in header
-4. **Auto Sync** - Configurable interval (Settings → Sync)
+2. **Use Templates** - Settings → Data Feeds → Import from bundled templates
+3. **Test Connection** - Validates feed URL and Windows Auth
+4. **Manual Sync** - Click sync button in header
+5. **Auto Sync** - Configurable interval (Settings → Sync)
 
-Supports feed types: Projects, Opportunities, Service Tickets
+### Feed Types
+
+| Type | Description |
+|------|-------------|
+| PROJECTS | Project summary data (name, status, dates, etc.) |
+| PROJECT_DETAIL | Detailed project data (linked to project feed for adaptive sync) |
+| OPPORTUNITIES | Sales opportunities |
+| SERVICE_TICKETS | Support tickets |
+
+## Default Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `sync_interval_minutes` | 60 | Auto-sync interval |
+| `auto_sync_enabled` | true | Enable automatic sync |
+| `date_lookback_days` | 730 | Days of data to sync (2 years) |
+| `adaptive_sync_enabled` | true | Enable PROJECT_DETAIL adaptive sync |
+| `sync_locations` | (empty) | Location filter (empty = all locations) |
 
 ## IPC Channels
 
-| Channel | Description |
-|---------|-------------|
-| `projects:*` | Project CRUD operations |
+IPC handlers are defined in `/electron/ipc/handlers.ts`. Key namespaces:
+
+| Namespace | Description |
+|-----------|-------------|
+| `projects:*` | Project CRUD, statuses, detail fields |
 | `opportunities:*` | Opportunity CRUD operations |
 | `serviceTickets:*` | Service ticket operations |
-| `sync:*` | Sync control and status |
-| `feeds:*` | ATOM feed management |
-| `settings:*` | App settings |
-| `updates:*` | Auto-updater control |
+| `sync:*` | Sync control, status, and progress events |
+| `feeds:*` | Feed management, templates, detail linking |
+| `settings:*` | App settings get/set |
+| `updates:*` | Auto-updater control, version info, GitHub token |
 
 ## Building
 
@@ -123,16 +152,16 @@ npm run dist:win
 
 ### Release Workflow
 
-1. **Update version** in `package.json`
+1. **Update version** in both `package.json` files (root and frontend)
 2. **Commit and push** with version in commit message:
    ```bash
-   git add -A && git commit -m "Description of changes (v1.0.21)"
+   git add -A && git commit -m "Description of changes (v2.0.0)"
    git push
    ```
 3. **Create and push a git tag**:
    ```bash
-   git tag v1.0.21
-   git push origin v1.0.21
+   git tag v2.0.0
+   git push origin v2.0.0
    ```
 4. **GitHub Actions automatically**:
    - Builds on `windows-latest` runner
@@ -144,7 +173,7 @@ npm run dist:win
 
 If you need to re-run the build without creating a new tag:
 ```bash
-gh workflow run build-windows.yml --ref v1.0.21
+gh workflow run build-windows.yml --ref v2.0.0
 ```
 
 ### Checking Build Status
@@ -169,13 +198,13 @@ gh run watch  # Watch the latest run
 --board-border: #334155;
 
 /* Status Colors */
---status-active: #22C55E (green)
---status-on-hold: #EAB308 (yellow)
---status-completed: #6B7280 (gray)
+--status-active: #22C55E;    /* green */
+--status-on-hold: #EAB308;   /* yellow */
+--status-completed: #6B7280; /* gray */
 
 /* Accent Colors */
---projects: #8B5CF6 (purple)
---opportunities: #10B981 (emerald)
---service-tickets: #F97316 (orange)
---pinned: #3B82F6 (blue)
+--projects: #8B5CF6;         /* purple */
+--opportunities: #10B981;    /* emerald */
+--service-tickets: #F97316;  /* orange */
+--pinned: #3B82F6;           /* blue */
 ```

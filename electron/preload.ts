@@ -301,6 +301,7 @@ const validEventChannels = [
   'sync:failed',
   'update:checking',
   'update:available',
+  'update:available-background', // Silent notification when periodic check finds update
   'update:not-available',
   'update:downloading',
   'update:progress',

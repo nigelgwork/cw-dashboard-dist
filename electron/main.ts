@@ -1,8 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, session } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, session, safeStorage } from 'electron';
 import path from 'path';
 import { initDatabase } from './database/connection';
 import { registerIpcHandlers } from './ipc/handlers';
-import { initAutoUpdater } from './services/auto-updater';
+import { initAutoUpdater, checkForUpdates } from './services/auto-updater';
 import { getSetting, setSetting, SettingKeys } from './services/settings';
 import { requestSync } from './services/sync';
 
@@ -13,8 +13,10 @@ if (require('electron-squirrel-startup')) {
 
 let mainWindow: BrowserWindow | null = null;
 let shouldAutoSync = false; // Flag for auto-sync after version change
+let updateCheckInterval: NodeJS.Timeout | null = null;
 
 const isDev = !app.isPackaged;
+const UPDATE_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -99,9 +101,14 @@ app.whenReady().then(async () => {
     // Create window
     createWindow();
 
+    // Set up Content Security Policy
+    setupContentSecurityPolicy();
+
     // Initialize auto-updater (production only)
     if (!isDev && mainWindow) {
       initAutoUpdater(mainWindow);
+      // Start periodic update checks (once per day)
+      startPeriodicUpdateCheck();
     }
   } catch (error) {
     console.error('Failed to initialize app:', error);
@@ -128,6 +135,87 @@ app.on('web-contents-created', (_, contents) => {
     return { action: 'deny' };
   });
 });
+
+/**
+ * Set up Content Security Policy
+ */
+function setupContentSecurityPolicy(): void {
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+        ]
+      }
+    });
+  });
+}
+
+/**
+ * Start periodic update checks (once per day)
+ * Notifies the renderer when an update is available
+ */
+function startPeriodicUpdateCheck(): void {
+  // Check if we should run an update check based on last check time
+  const lastCheck = getSetting(SettingKeys.LAST_UPDATE_CHECK);
+  const now = Date.now();
+
+  if (lastCheck) {
+    const lastCheckTime = new Date(lastCheck).getTime();
+    const timeSinceCheck = now - lastCheckTime;
+
+    // If less than 24 hours since last check, schedule next check accordingly
+    if (timeSinceCheck < UPDATE_CHECK_INTERVAL) {
+      const nextCheckDelay = UPDATE_CHECK_INTERVAL - timeSinceCheck;
+      console.log(`[Main] Next update check in ${Math.round(nextCheckDelay / 1000 / 60)} minutes`);
+      setTimeout(() => {
+        performUpdateCheck();
+        startUpdateCheckInterval();
+      }, nextCheckDelay);
+      return;
+    }
+  }
+
+  // Perform immediate check (with small delay to let app initialize)
+  setTimeout(() => {
+    performUpdateCheck();
+    startUpdateCheckInterval();
+  }, 5000);
+}
+
+/**
+ * Start the 24-hour interval for update checks
+ */
+function startUpdateCheckInterval(): void {
+  if (updateCheckInterval) {
+    clearInterval(updateCheckInterval);
+  }
+
+  updateCheckInterval = setInterval(() => {
+    performUpdateCheck();
+  }, UPDATE_CHECK_INTERVAL);
+}
+
+/**
+ * Perform an update check and notify renderer if update available
+ */
+async function performUpdateCheck(): Promise<void> {
+  try {
+    console.log('[Main] Performing periodic update check...');
+    const status = await checkForUpdates();
+
+    if (status.available && mainWindow && !mainWindow.isDestroyed()) {
+      console.log(`[Main] Update available: ${status.version}`);
+      mainWindow.webContents.send('update:available-background', {
+        version: status.version,
+        releaseNotes: status.releaseNotes,
+      });
+    }
+  } catch (error) {
+    console.error('[Main] Periodic update check failed:', error);
+  }
+}
 
 // Export for type checking in other modules
 export { mainWindow };

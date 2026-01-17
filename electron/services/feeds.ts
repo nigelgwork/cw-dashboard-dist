@@ -57,9 +57,29 @@ export function getFeedById(id: number): AtomFeed | null {
 }
 
 /**
+ * Validate file path for security
+ * Prevents path traversal and ensures valid file extension
+ */
+function validateFilePath(filePath: string): void {
+  // Check for path traversal attempts
+  if (filePath.includes('..')) {
+    throw new Error('Invalid file path: path traversal not allowed');
+  }
+
+  // Validate extension
+  const ext = path.extname(filePath).toLowerCase();
+  if (!['.atomsvc', '.xml'].includes(ext)) {
+    throw new Error('Invalid file type: only .atomsvc and .xml files are allowed');
+  }
+}
+
+/**
  * Import feeds from an ATOMSVC file
  */
 export async function importFeed(filePath: string): Promise<AtomFeed[]> {
+  // Validate file path before reading
+  validateFilePath(filePath);
+
   const db = getDatabase();
 
   // Read and parse the file
@@ -486,6 +506,16 @@ export async function exportTemplatesToDirectory(destDir: string): Promise<{ exp
  * Read a template file content
  */
 export function getTemplateContent(filename: string): string | null {
+  // Validate filename - prevent path traversal
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('..')) {
+    throw new Error('Invalid template filename: path separators not allowed');
+  }
+
+  // Validate extension
+  if (!filename.endsWith('.atomsvc')) {
+    throw new Error('Invalid template file type: only .atomsvc files are allowed');
+  }
+
   const templatesDir = getTemplatesDir();
   const filePath = path.join(templatesDir, filename);
 

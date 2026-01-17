@@ -1,100 +1,217 @@
-# Security Checklist - CW Dashboard
+# Security Checklist - CW Dashboard (Electron)
 
 ## Quick Scan (Every Commit)
 
 Before every commit, verify:
 
-- [ ] No `.env` files staged (only `.env.example`)
-- [ ] No hardcoded passwords or API keys
-- [ ] No `console.log` with sensitive data
-- [ ] SQL queries use parameterized statements (SQLAlchemy ORM)
-- [ ] User input validated before use
+- [ ] No hardcoded passwords, tokens, or API keys
+- [ ] No `console.log` with sensitive data (URLs with credentials, tokens)
+- [ ] SQL queries use parameterized statements (better-sqlite3 `?` placeholders)
+- [ ] File paths validated before reading
+- [ ] IPC inputs validated before use
+
+## Electron Security Configuration
+
+### Required Settings (main.ts)
+```typescript
+webPreferences: {
+  preload: path.join(__dirname, 'preload.js'),
+  contextIsolation: true,    // REQUIRED: Isolate renderer from Node
+  nodeIntegration: false,    // REQUIRED: No Node.js in renderer
+  sandbox: true,             // REQUIRED: OS-level sandboxing
+}
+```
+
+### Window Security
+```typescript
+// Block new window creation
+app.on('web-contents-created', (_, contents) => {
+  contents.setWindowOpenHandler(() => {
+    return { action: 'deny' };
+  });
+});
+```
+
+### Navigation Security
+```typescript
+// Block navigation to external URLs
+contents.on('will-navigate', (event, url) => {
+  if (!url.startsWith('file://')) {
+    event.preventDefault();
+  }
+});
+```
 
 ## Code Security Patterns
 
 ### Never Use
-```python
-# NEVER: String interpolation in SQL
-f"SELECT * FROM users WHERE id = {user_id}"
+```typescript
+// NEVER: nodeIntegration enabled
+nodeIntegration: true  // DANGEROUS
 
-# NEVER: eval() or exec()
-eval(user_input)
+// NEVER: contextIsolation disabled
+contextIsolation: false  // DANGEROUS
 
-# NEVER: Hardcoded credentials
-password = "admin123"
+// NEVER: Remote module
+require('@electron/remote')  // DEPRECATED & DANGEROUS
+
+// NEVER: Shell.openExternal with user input
+shell.openExternal(userProvidedUrl)  // Validate first
+
+// NEVER: eval() or Function constructor
+eval(userInput)
+new Function(userInput)
 ```
 
 ### Always Use
-```python
-# ALWAYS: SQLAlchemy ORM
-db.query(User).filter(User.id == user_id).first()
+```typescript
+// ALWAYS: Parameterized queries
+db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
 
-# ALWAYS: Pydantic validation
-class TaskCreate(BaseModel):
-    client_name: str = Field(..., min_length=1, max_length=200)
+// ALWAYS: Validate file paths
+if (filename.includes('..') || filename.includes('/')) {
+  throw new Error('Invalid filename');
+}
 
-# ALWAYS: Environment variables
-password = os.environ.get("DB_PASSWORD")
+// ALWAYS: Secure credential storage
+import { safeStorage } from 'electron';
+const encrypted = safeStorage.encryptString(token);
+
+// ALWAYS: IPC channel whitelisting
+const validChannels = ['sync:progress', 'sync:completed'];
+if (!validChannels.includes(channel)) {
+  throw new Error('Invalid channel');
+}
 ```
 
-## API Security
+## IPC Security
 
-### Input Validation
-- All endpoints use Pydantic models
-- String lengths are bounded
-- Enum values validated
-- IDs are validated as integers
+### Handler Validation
+```typescript
+ipcMain.handle('projects:getById', async (_, id: unknown) => {
+  // Validate input types
+  if (typeof id !== 'number' || !Number.isInteger(id) || id < 1) {
+    throw new Error('Invalid project ID');
+  }
+  return projectService.getById(id);
+});
+```
 
-### CORS Configuration
-- Explicit origin whitelist
-- No wildcard (`*`) in production
-- Credentials require explicit origins
+### Event Channel Whitelisting
+```typescript
+const validEventChannels = [
+  'sync:progress',
+  'sync:completed',
+  'sync:error',
+];
 
-### WebSocket Security
-- Connection validation
-- Message size limits
-- Rate limiting consideration
+on: (channel: string, callback: Function) => {
+  if (!validEventChannels.includes(channel)) {
+    console.warn(`Invalid event channel: ${channel}`);
+    return () => {};
+  }
+  // ... subscribe to channel
+}
+```
+
+## Credential Security
+
+### GitHub Token Storage
+```typescript
+// Use Electron's safeStorage API
+import { safeStorage } from 'electron';
+
+// Store
+const encrypted = safeStorage.encryptString(token);
+// Save encrypted buffer to database
+
+// Retrieve
+const token = safeStorage.decryptString(encryptedBuffer);
+```
+
+### Windows Authentication (NTLM)
+```typescript
+// Restrict to known domains (avoid wildcard '*')
+session.defaultSession.allowNTLMCredentialsForDomains(
+  '*.yourdomain.com,reportserver.internal.com'
+);
+```
 
 ## Database Security
 
-### Connection
-- Use environment variables for credentials
-- Never log connection strings
-- Use connection pooling
-
 ### Queries
-- Always use ORM (SQLAlchemy)
-- No raw SQL with user input
-- Validate all filter parameters
+- Always use `?` placeholders for parameters
+- Never concatenate user input into SQL strings
+- Use transactions for multi-step operations
 
-## Docker Security
+### File Location
+- Database stored in `%APPDATA%/cw-dashboard/`
+- Contains business data - consider sensitivity level
+- No encryption by default (acceptable for local desktop app)
 
-### Images
-- Use specific version tags (not `latest`)
-- Non-root user in containers where possible
-- Minimal base images (alpine preferred)
+## Network Security
 
-### Secrets
-- Use Docker secrets or environment variables
-- Never bake secrets into images
-- Mount secrets at runtime
+### HTTPS
+- All SSRS feed URLs should use HTTPS
+- Validate SSL certificates (default behavior)
 
-## Pre-Deployment Checklist
+### Content Security Policy
+```typescript
+session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+  callback({
+    responseHeaders: {
+      ...details.responseHeaders,
+      'Content-Security-Policy': [
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
+      ]
+    }
+  });
+});
+```
 
-- [ ] All environment variables documented in `.env.example`
-- [ ] Database credentials are strong and unique
-- [ ] CORS origins are production URLs only
-- [ ] Debug mode disabled
-- [ ] Error messages don't leak internal details
-- [ ] Rate limiting configured
-- [ ] HTTPS enabled (via reverse proxy)
+## Auto-Update Security
+
+### Signature Verification
+- electron-updater verifies download integrity
+- For production: implement code signing
+
+### Update Source
+- Updates only from configured GitHub repository
+- HTTPS transport for downloads
+
+## Dependency Security
+
+### Regular Audits
+```bash
+npm audit
+cd frontend && npm audit
+```
+
+### Update Strategy
+- Monitor for security advisories
+- Update Electron for security patches
+- Review breaking changes before major updates
+
+## Pre-Release Checklist
+
+- [ ] Context isolation enabled
+- [ ] Node integration disabled
+- [ ] Sandbox enabled
+- [ ] New window creation blocked
+- [ ] Sensitive credentials use safeStorage
+- [ ] IPC inputs validated
+- [ ] File path inputs validated
+- [ ] CSP configured
+- [ ] No high-severity npm audit findings
+- [ ] Debug logging reviewed for sensitive data
 
 ## Incident Response
 
 If you discover a security issue:
 
-1. **Don't commit the fix publicly** if it reveals the vulnerability
-2. **Document** what was found and how
-3. **Assess** the impact and exposure
-4. **Fix** the issue in a private branch if needed
-5. **Review** related code for similar issues
+1. **Assess** - Determine scope and impact
+2. **Document** - Record what was found and how
+3. **Fix** - Implement the fix
+4. **Review** - Check for similar issues elsewhere
+5. **Test** - Verify the fix doesn't break functionality
+6. **Release** - Deploy fix promptly for security issues

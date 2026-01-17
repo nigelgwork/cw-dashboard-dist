@@ -1,6 +1,6 @@
 import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater';
-import { BrowserWindow, app } from 'electron';
-import { getSetting, setSetting, SettingKeys } from './settings';
+import { BrowserWindow, app, safeStorage } from 'electron';
+import { getSetting, setSetting, deleteSetting, SettingKeys } from './settings';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -32,10 +32,36 @@ let updateStatus: UpdateStatus = {
 };
 
 /**
+ * Decrypt the stored GitHub token
+ * Returns null if no token stored or decryption fails
+ */
+function getDecryptedToken(): string | null {
+  const encryptedToken = getSetting(SettingKeys.GITHUB_TOKEN);
+  if (!encryptedToken) return null;
+
+  try {
+    // Check if safeStorage is available
+    if (!safeStorage.isEncryptionAvailable()) {
+      console.warn('[AutoUpdater] Encryption not available, using stored token directly');
+      return encryptedToken;
+    }
+
+    // Decrypt the token
+    const buffer = Buffer.from(encryptedToken, 'base64');
+    return safeStorage.decryptString(buffer);
+  } catch (error) {
+    console.error('[AutoUpdater] Failed to decrypt token:', error);
+    // Token might be stored in old plaintext format, try using it directly
+    // and re-encrypt it on next save
+    return encryptedToken;
+  }
+}
+
+/**
  * Configure the GitHub token for private repo access
  */
 function configureGitHubToken(): void {
-  const token = getSetting(SettingKeys.GITHUB_TOKEN);
+  const token = getDecryptedToken();
 
   if (token) {
     console.log('[AutoUpdater] Using stored GitHub token for private repo access');
@@ -343,15 +369,29 @@ export function getCurrentVersion(): string {
 
 /**
  * Set the GitHub token for private repository access
- * This saves the token and reconfigures the updater
+ * Uses Electron's safeStorage to encrypt the token before storing
  */
 export function setGitHubToken(token: string | null): void {
   if (token) {
-    setSetting(SettingKeys.GITHUB_TOKEN, token);
+    try {
+      if (safeStorage.isEncryptionAvailable()) {
+        // Encrypt the token and store as base64
+        const encrypted = safeStorage.encryptString(token);
+        setSetting(SettingKeys.GITHUB_TOKEN, encrypted.toString('base64'));
+        console.log('[AutoUpdater] Token encrypted and stored securely');
+      } else {
+        // Fallback: store directly if encryption not available
+        console.warn('[AutoUpdater] Encryption not available, storing token directly');
+        setSetting(SettingKeys.GITHUB_TOKEN, token);
+      }
+    } catch (error) {
+      console.error('[AutoUpdater] Failed to encrypt token:', error);
+      // Fallback to direct storage
+      setSetting(SettingKeys.GITHUB_TOKEN, token);
+    }
   } else {
     // Delete the token setting if null
-    const db = require('../database/connection').getDatabase();
-    db.prepare('DELETE FROM settings WHERE key = ?').run(SettingKeys.GITHUB_TOKEN);
+    deleteSetting(SettingKeys.GITHUB_TOKEN);
   }
   // Reconfigure the updater with the new token
   configureGitHubToken();
@@ -361,7 +401,7 @@ export function setGitHubToken(token: string | null): void {
  * Get the current GitHub token (masked for display)
  */
 export function getGitHubTokenStatus(): { hasToken: boolean; maskedToken: string | null } {
-  const token = getSetting(SettingKeys.GITHUB_TOKEN);
+  const token = getDecryptedToken();
   if (!token) {
     return { hasToken: false, maskedToken: null };
   }
