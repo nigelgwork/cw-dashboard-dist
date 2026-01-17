@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, LayoutDashboard, FolderKanban, TrendingUp, Ticket, Pin, AlertCircle, Clock, Database, Settings, Download, ArrowDownToLine } from 'lucide-react';
+import { RefreshCw, LayoutDashboard, FolderKanban, TrendingUp, Ticket, Pin, AlertCircle, Clock, Database, Settings, Download, ArrowDownToLine, FileText, Users } from 'lucide-react';
 import { sync, isElectron, events, updates } from '../../api';
 
 interface SyncStatus {
@@ -20,7 +20,7 @@ interface UpdateState {
 
 const CURRENT_VERSION = __APP_VERSION__;
 
-export type ViewType = 'dashboard' | 'projects' | 'opportunities' | 'service-tickets' | 'sync' | 'settings';
+export type ViewType = 'dashboard' | 'projects' | 'opportunities' | 'service-tickets' | 'quotes' | 'resources' | 'sync' | 'settings';
 
 interface HeaderProps {
   activeView: ViewType;
@@ -33,6 +33,8 @@ const tabs: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: 'projects', label: 'Projects', icon: <FolderKanban size={16} /> },
   { id: 'opportunities', label: 'Opportunities', icon: <TrendingUp size={16} /> },
   { id: 'service-tickets', label: 'Tickets', icon: <Ticket size={16} /> },
+  { id: 'quotes', label: 'Quotes', icon: <FileText size={16} /> },
+  { id: 'resources', label: 'Resources', icon: <Users size={16} /> },
   { id: 'sync', label: 'Data Sync', icon: <Database size={16} /> },
   { id: 'settings', label: 'Settings', icon: <Settings size={16} /> },
 ];

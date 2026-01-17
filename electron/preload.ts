@@ -79,6 +79,70 @@ export interface ElectronAPI {
     getGitHubTokenStatus: () => Promise<GitHubTokenStatus>;
   };
 
+  // Cloud Database
+  cloud: {
+    getStatus: () => Promise<CloudStatus>;
+    testConnection: (connectionString: string) => Promise<CloudTestResult>;
+    setConnectionString: (connectionString: string) => Promise<void>;
+    connect: () => Promise<boolean>;
+    disconnect: () => Promise<void>;
+    setEnabled: (enabled: boolean) => Promise<void>;
+  };
+
+  // Employees
+  employees: {
+    getAll: (options?: EmployeeQueryOptions) => Promise<Employee[]>;
+    getById: (id: number) => Promise<Employee | null>;
+    create: (data: CreateEmployeeData) => Promise<Employee>;
+    update: (id: number, data: Partial<CreateEmployeeData>) => Promise<Employee | null>;
+    delete: (id: number) => Promise<boolean>;
+    getDepartments: () => Promise<string[]>;
+    reorder: (orderedIds: number[]) => Promise<void>;
+    getCount: (isActive?: boolean) => Promise<number>;
+  };
+
+  // Quotations
+  quotations: {
+    getAll: (options?: QuotationQueryOptions) => Promise<Quotation[]>;
+    getById: (id: number) => Promise<Quotation | null>;
+    create: (data: CreateQuotationData) => Promise<Quotation>;
+    update: (id: number, data: Partial<CreateQuotationData>) => Promise<Quotation | null>;
+    delete: (id: number) => Promise<boolean>;
+    getStatuses: () => Promise<QuotationStatus[]>;
+    getPriorities: () => Promise<Priority[]>;
+    getStats: () => Promise<QuotationStats>;
+  };
+
+  // Resource Tasks
+  resourceTasks: {
+    getAll: (options?: ResourceTaskQueryOptions) => Promise<ResourceTask[]>;
+    getById: (id: number) => Promise<ResourceTask | null>;
+    getByEmployee: (employeeId: number) => Promise<ResourceTask[]>;
+    getUnassigned: () => Promise<ResourceTask[]>;
+    create: (data: CreateResourceTaskData) => Promise<ResourceTask>;
+    update: (id: number, data: Partial<CreateResourceTaskData>) => Promise<ResourceTask | null>;
+    delete: (id: number) => Promise<boolean>;
+    moveToEmployee: (taskId: number, employeeId: number | null, sortOrder?: number) => Promise<ResourceTask | null>;
+    reorderForEmployee: (employeeId: number | null, orderedIds: number[]) => Promise<void>;
+    getStatuses: () => Promise<TaskStatus[]>;
+    getPriorities: () => Promise<TaskPriority[]>;
+  };
+
+  // Teams
+  teams: {
+    getAll: (options?: TeamQueryOptions) => Promise<Team[]>;
+    getById: (id: number) => Promise<Team | null>;
+    create: (data: CreateTeamData) => Promise<Team>;
+    update: (id: number, data: Partial<CreateTeamData>) => Promise<Team | null>;
+    delete: (id: number) => Promise<boolean>;
+    getMembers: (teamId: number) => Promise<TeamMember[]>;
+    addMember: (teamId: number, employeeId: number, isLead?: boolean) => Promise<TeamMember>;
+    removeMember: (teamId: number, employeeId: number) => Promise<boolean>;
+    setLead: (teamId: number, employeeId: number) => Promise<void>;
+    getTeamsForEmployee: (employeeId: number) => Promise<Team[]>;
+    reorder: (orderedIds: number[]) => Promise<void>;
+  };
+
   // Events (main -> renderer)
   on: (channel: string, callback: (data: unknown) => void) => () => void;
   off: (channel: string, callback: (data: unknown) => void) => void;
@@ -294,6 +358,195 @@ interface ExportTemplatesResult {
   cancelled: boolean;
 }
 
+// Cloud Database Types
+interface CloudStatus {
+  connected: boolean;
+  enabled: boolean;
+  lastConnected: string | null;
+  lastError: string | null;
+  databaseUrl: string | null;
+}
+
+interface CloudTestResult {
+  success: boolean;
+  message: string;
+  schemaExists?: boolean;
+}
+
+// Employee Types
+interface EmployeeQueryOptions {
+  isActive?: boolean;
+  department?: string;
+  limit?: number;
+  offset?: number;
+}
+
+interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+  displayName: string | null;
+  email: string | null;
+  role: string | null;
+  department: string | null;
+  color: string;
+  avatarUrl: string | null;
+  isSenior: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CreateEmployeeData {
+  firstName: string;
+  lastName: string;
+  displayName?: string;
+  email?: string;
+  role?: string;
+  department?: string;
+  color?: string;
+  avatarUrl?: string;
+  isSenior?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+// Quotation Types
+type QuotationStatus = 'draft' | 'sent' | 'follow_up' | 'won' | 'lost';
+type Priority = 'low' | 'medium' | 'high' | 'urgent';
+
+interface QuotationQueryOptions {
+  status?: QuotationStatus;
+  priority?: Priority;
+  assignedTo?: number;
+  limit?: number;
+  offset?: number;
+}
+
+interface Quotation {
+  id: number;
+  reference: string | null;
+  clientName: string;
+  projectName: string | null;
+  description: string | null;
+  value: number | null;
+  assignedTo: number | null;
+  assignedToName?: string | null;
+  status: QuotationStatus;
+  priority: Priority;
+  dueDate: string | null;
+  sentDate: string | null;
+  followUpDate: string | null;
+  probability: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CreateQuotationData {
+  reference?: string;
+  clientName: string;
+  projectName?: string;
+  description?: string;
+  value?: number;
+  assignedTo?: number;
+  status?: QuotationStatus;
+  priority?: Priority;
+  dueDate?: string;
+  sentDate?: string;
+  followUpDate?: string;
+  probability?: number;
+  notes?: string;
+}
+
+interface QuotationStats {
+  total: number;
+  byStatus: Record<QuotationStatus, number>;
+  totalValue: number;
+  avgProbability: number;
+}
+
+// Resource Task Types
+type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'blocked';
+type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+interface ResourceTaskQueryOptions {
+  employeeId?: number;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  unassigned?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+interface ResourceTask {
+  id: number;
+  employeeId: number | null;
+  employeeName?: string | null;
+  projectExternalId: string | null;
+  clientName: string | null;
+  projectName: string | null;
+  description: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  dueDate: string | null;
+  estimatedHours: number | null;
+  percentComplete: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CreateResourceTaskData {
+  employeeId?: number;
+  projectExternalId?: string;
+  clientName?: string;
+  projectName?: string;
+  description?: string;
+  priority?: TaskPriority;
+  status?: TaskStatus;
+  dueDate?: string;
+  estimatedHours?: number;
+  percentComplete?: number;
+  sortOrder?: number;
+}
+
+// Team Types
+interface TeamQueryOptions {
+  isActive?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+interface Team {
+  id: number;
+  name: string;
+  color: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  memberCount?: number;
+  createdAt: string;
+}
+
+interface CreateTeamData {
+  name: string;
+  color?: string;
+  description?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+interface TeamMember {
+  id: number;
+  teamId: number;
+  employeeId: number;
+  isLead: boolean;
+  employeeName?: string;
+  employeeRole?: string;
+}
+
 // Valid channels for events from main process
 const validEventChannels = [
   'sync:progress',
@@ -310,6 +563,8 @@ const validEventChannels = [
   'feed:sync-started',
   'feed:sync-completed',
   'app:version-updated', // Sent when app version changes, triggers auto-sync
+  'cloud:status-changed', // Cloud database connection status changed
+  'cloud:connection-lost', // Cloud database connection lost
 ];
 
 // Expose protected methods via context bridge
@@ -390,6 +645,70 @@ contextBridge.exposeInMainWorld('electronAPI', {
     install: () => ipcRenderer.invoke('updates:install'),
     setGitHubToken: (token: string | null) => ipcRenderer.invoke('updates:setGitHubToken', token),
     getGitHubTokenStatus: () => ipcRenderer.invoke('updates:getGitHubTokenStatus'),
+  },
+
+  // Cloud Database
+  cloud: {
+    getStatus: () => ipcRenderer.invoke('cloud:getStatus'),
+    testConnection: (connectionString: string) => ipcRenderer.invoke('cloud:testConnection', connectionString),
+    setConnectionString: (connectionString: string) => ipcRenderer.invoke('cloud:setConnectionString', connectionString),
+    connect: () => ipcRenderer.invoke('cloud:connect'),
+    disconnect: () => ipcRenderer.invoke('cloud:disconnect'),
+    setEnabled: (enabled: boolean) => ipcRenderer.invoke('cloud:setEnabled', enabled),
+  },
+
+  // Employees
+  employees: {
+    getAll: (options?: EmployeeQueryOptions) => ipcRenderer.invoke('employees:getAll', options),
+    getById: (id: number) => ipcRenderer.invoke('employees:getById', id),
+    create: (data: CreateEmployeeData) => ipcRenderer.invoke('employees:create', data),
+    update: (id: number, data: Partial<CreateEmployeeData>) => ipcRenderer.invoke('employees:update', id, data),
+    delete: (id: number) => ipcRenderer.invoke('employees:delete', id),
+    getDepartments: () => ipcRenderer.invoke('employees:getDepartments'),
+    reorder: (orderedIds: number[]) => ipcRenderer.invoke('employees:reorder', orderedIds),
+    getCount: (isActive?: boolean) => ipcRenderer.invoke('employees:getCount', isActive),
+  },
+
+  // Quotations
+  quotations: {
+    getAll: (options?: QuotationQueryOptions) => ipcRenderer.invoke('quotations:getAll', options),
+    getById: (id: number) => ipcRenderer.invoke('quotations:getById', id),
+    create: (data: CreateQuotationData) => ipcRenderer.invoke('quotations:create', data),
+    update: (id: number, data: Partial<CreateQuotationData>) => ipcRenderer.invoke('quotations:update', id, data),
+    delete: (id: number) => ipcRenderer.invoke('quotations:delete', id),
+    getStatuses: () => ipcRenderer.invoke('quotations:getStatuses'),
+    getPriorities: () => ipcRenderer.invoke('quotations:getPriorities'),
+    getStats: () => ipcRenderer.invoke('quotations:getStats'),
+  },
+
+  // Resource Tasks
+  resourceTasks: {
+    getAll: (options?: ResourceTaskQueryOptions) => ipcRenderer.invoke('resourceTasks:getAll', options),
+    getById: (id: number) => ipcRenderer.invoke('resourceTasks:getById', id),
+    getByEmployee: (employeeId: number) => ipcRenderer.invoke('resourceTasks:getByEmployee', employeeId),
+    getUnassigned: () => ipcRenderer.invoke('resourceTasks:getUnassigned'),
+    create: (data: CreateResourceTaskData) => ipcRenderer.invoke('resourceTasks:create', data),
+    update: (id: number, data: Partial<CreateResourceTaskData>) => ipcRenderer.invoke('resourceTasks:update', id, data),
+    delete: (id: number) => ipcRenderer.invoke('resourceTasks:delete', id),
+    moveToEmployee: (taskId: number, employeeId: number | null, sortOrder?: number) => ipcRenderer.invoke('resourceTasks:moveToEmployee', taskId, employeeId, sortOrder),
+    reorderForEmployee: (employeeId: number | null, orderedIds: number[]) => ipcRenderer.invoke('resourceTasks:reorderForEmployee', employeeId, orderedIds),
+    getStatuses: () => ipcRenderer.invoke('resourceTasks:getStatuses'),
+    getPriorities: () => ipcRenderer.invoke('resourceTasks:getPriorities'),
+  },
+
+  // Teams
+  teams: {
+    getAll: (options?: TeamQueryOptions) => ipcRenderer.invoke('teams:getAll', options),
+    getById: (id: number) => ipcRenderer.invoke('teams:getById', id),
+    create: (data: CreateTeamData) => ipcRenderer.invoke('teams:create', data),
+    update: (id: number, data: Partial<CreateTeamData>) => ipcRenderer.invoke('teams:update', id, data),
+    delete: (id: number) => ipcRenderer.invoke('teams:delete', id),
+    getMembers: (teamId: number) => ipcRenderer.invoke('teams:getMembers', teamId),
+    addMember: (teamId: number, employeeId: number, isLead?: boolean) => ipcRenderer.invoke('teams:addMember', teamId, employeeId, isLead),
+    removeMember: (teamId: number, employeeId: number) => ipcRenderer.invoke('teams:removeMember', teamId, employeeId),
+    setLead: (teamId: number, employeeId: number) => ipcRenderer.invoke('teams:setLead', teamId, employeeId),
+    getTeamsForEmployee: (employeeId: number) => ipcRenderer.invoke('teams:getTeamsForEmployee', employeeId),
+    reorder: (orderedIds: number[]) => ipcRenderer.invoke('teams:reorder', orderedIds),
   },
 
   // Event subscription

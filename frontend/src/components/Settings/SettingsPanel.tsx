@@ -10,12 +10,16 @@ import {
   Info,
   Database,
   Trash2,
+  Cloud,
+  Users,
 } from 'lucide-react';
 import AtomFeedManager from './AtomFeedManager';
+import CloudDatabaseSettings from './CloudDatabaseSettings';
+import TeamManagement from './TeamManagement';
 import { isElectron, electronUpdatesApi, electronSettingsApi, electronProjectsApi, electronOpportunitiesApi, electronServiceTicketsApi } from '../../api/electron-api';
 import { useToast } from '../../context/ToastContext';
 
-type SettingsTab = 'feeds' | 'sync' | 'data' | 'updates' | 'about';
+type SettingsTab = 'feeds' | 'sync' | 'data' | 'cloud' | 'teams' | 'updates' | 'about';
 
 // Strip HTML tags and convert to readable text
 function stripHtml(html: string): string {
@@ -201,6 +205,8 @@ export default function SettingsPanel() {
     { id: 'feeds', label: 'Data Feeds', icon: <Rss size={16} /> },
     { id: 'sync', label: 'Sync Settings', icon: <RefreshCw size={16} /> },
     { id: 'data', label: 'Data Management', icon: <Database size={16} /> },
+    { id: 'cloud', label: 'Cloud Database', icon: <Cloud size={16} /> },
+    { id: 'teams', label: 'Team Management', icon: <Users size={16} /> },
     { id: 'updates', label: 'Updates', icon: <Download size={16} /> },
     { id: 'about', label: 'About', icon: <Info size={16} /> },
   ];
@@ -445,6 +451,10 @@ export default function SettingsPanel() {
               </div>
             </div>
           )}
+
+          {activeTab === 'cloud' && <CloudDatabaseSettings />}
+
+          {activeTab === 'teams' && <TeamManagement />}
 
           {activeTab === 'updates' && (
             <div className="space-y-6">

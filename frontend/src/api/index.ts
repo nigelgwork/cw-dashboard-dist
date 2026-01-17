@@ -19,6 +19,11 @@ import {
   electronUpdatesApi,
   electronEvents,
 } from './electron-api';
+import { cloudApi } from './cloud';
+import { employeesApi } from './employees';
+import { quotationsApi } from './quotations';
+import { resourceTasksApi } from './resource-tasks';
+import { teamsApi } from './teams';
 
 // Re-export types
 export type { ProjectsFilter, PaginatedResponse } from './projects';
@@ -48,6 +53,13 @@ export const settings = useElectron ? electronSettingsApi : null;
 export const updates = useElectron ? electronUpdatesApi : null;
 export const events = useElectron ? electronEvents : null;
 
+// Cloud-only APIs (require cloud database connection)
+export const cloud = useElectron ? cloudApi : null;
+export const employees = useElectron ? employeesApi : null;
+export const quotations = useElectron ? quotationsApi : null;
+export const resourceTasks = useElectron ? resourceTasksApi : null;
+export const teams = useElectron ? teamsApi : null;
+
 // Legacy export for backward compatibility
 export { getSyncStatus };
 
@@ -64,6 +76,11 @@ const api = {
   settings,
   updates,
   events,
+  cloud,
+  employees,
+  quotations,
+  resourceTasks,
+  teams,
   isElectron: useElectron,
 };
 

@@ -6,6 +6,8 @@ import FullPageView from './components/Layout/FullPageView';
 import PinnedView from './components/Layout/PinnedView';
 import SyncPanel from './components/Sync/SyncPanel';
 import SettingsPanel from './components/Settings/SettingsPanel';
+import { QuotesView } from './components/Quotes';
+import { ResourcesView } from './components/Resources';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import { usePinnedItems } from './hooks/usePinnedItems';
 
@@ -50,6 +52,8 @@ function AppContent() {
             togglePin={pinnedItems.togglePin}
           />
         )}
+        {activeView === 'quotes' && <QuotesView />}
+        {activeView === 'resources' && <ResourcesView />}
         {activeView === 'sync' && <SyncPanel />}
         {activeView === 'settings' && <SettingsPanel />}
       </ErrorBoundary>

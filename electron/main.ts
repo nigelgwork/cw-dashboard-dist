@@ -5,6 +5,7 @@ import { registerIpcHandlers } from './ipc/handlers';
 import { initAutoUpdater, checkForUpdates } from './services/auto-updater';
 import { getSetting, setSetting, SettingKeys } from './services/settings';
 import { requestSync } from './services/sync';
+import { autoConnect as autoConnectCloud } from './services/cloud-database';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
 if (require('electron-squirrel-startup')) {
@@ -83,6 +84,11 @@ app.whenReady().then(async () => {
 
     // Initialize database
     await initDatabase();
+
+    // Auto-connect to cloud database if configured
+    autoConnectCloud().catch((err) => {
+      console.warn('[Main] Cloud database auto-connect failed:', err);
+    });
 
     // Check if version has changed (for auto-sync after update)
     const currentVersion = app.getVersion();

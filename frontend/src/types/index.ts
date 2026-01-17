@@ -238,6 +238,210 @@ export function transformOpportunity(api: OpportunityAPI): Opportunity {
 export type SyncType = 'PROJECTS' | 'OPPORTUNITIES' | 'SERVICE_TICKETS';
 export type SyncStatus = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 
+// ============================================
+// Cloud Database Types
+// ============================================
+
+export interface CloudStatus {
+  connected: boolean;
+  enabled: boolean;
+  lastConnected: string | null;
+  lastError: string | null;
+  databaseUrl: string | null;
+}
+
+export interface CloudTestResult {
+  success: boolean;
+  message: string;
+  schemaExists?: boolean;
+}
+
+// ============================================
+// Employee Types
+// ============================================
+
+export interface Employee {
+  id: number;
+  firstName: string;
+  lastName: string;
+  displayName: string | null;
+  email: string | null;
+  role: string | null;
+  department: string | null;
+  color: string;
+  avatarUrl: string | null;
+  isSenior: boolean;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeQueryOptions {
+  isActive?: boolean;
+  department?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateEmployeeData {
+  firstName: string;
+  lastName: string;
+  displayName?: string;
+  email?: string;
+  role?: string;
+  department?: string;
+  color?: string;
+  avatarUrl?: string;
+  isSenior?: boolean;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+// ============================================
+// Quotation Types
+// ============================================
+
+export type QuotationStatus = 'draft' | 'sent' | 'follow_up' | 'won' | 'lost';
+export type Priority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface Quotation {
+  id: number;
+  reference: string | null;
+  clientName: string;
+  projectName: string | null;
+  description: string | null;
+  value: number | null;
+  assignedTo: number | null;
+  assignedToName?: string | null;
+  status: QuotationStatus;
+  priority: Priority;
+  dueDate: string | null;
+  sentDate: string | null;
+  followUpDate: string | null;
+  probability: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QuotationQueryOptions {
+  status?: QuotationStatus;
+  priority?: Priority;
+  assignedTo?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateQuotationData {
+  reference?: string;
+  clientName: string;
+  projectName?: string;
+  description?: string;
+  value?: number;
+  assignedTo?: number;
+  status?: QuotationStatus;
+  priority?: Priority;
+  dueDate?: string;
+  sentDate?: string;
+  followUpDate?: string;
+  probability?: number;
+  notes?: string;
+}
+
+export interface QuotationStats {
+  total: number;
+  byStatus: Record<QuotationStatus, number>;
+  totalValue: number;
+  avgProbability: number;
+}
+
+// ============================================
+// Resource Task Types
+// ============================================
+
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done' | 'blocked';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface ResourceTask {
+  id: number;
+  employeeId: number | null;
+  employeeName?: string | null;
+  projectExternalId: string | null;
+  clientName: string | null;
+  projectName: string | null;
+  description: string | null;
+  priority: TaskPriority;
+  status: TaskStatus;
+  dueDate: string | null;
+  estimatedHours: number | null;
+  percentComplete: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ResourceTaskQueryOptions {
+  employeeId?: number;
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  unassigned?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateResourceTaskData {
+  employeeId?: number;
+  projectExternalId?: string;
+  clientName?: string;
+  projectName?: string;
+  description?: string;
+  priority?: TaskPriority;
+  status?: TaskStatus;
+  dueDate?: string;
+  estimatedHours?: number;
+  percentComplete?: number;
+  sortOrder?: number;
+}
+
+// ============================================
+// Team Types
+// ============================================
+
+export interface Team {
+  id: number;
+  name: string;
+  color: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  memberCount?: number;
+  createdAt: string;
+}
+
+export interface TeamQueryOptions {
+  isActive?: boolean;
+  limit?: number;
+  offset?: number;
+}
+
+export interface CreateTeamData {
+  name: string;
+  color?: string;
+  description?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface TeamMember {
+  id: number;
+  teamId: number;
+  employeeId: number;
+  isLead: boolean;
+  employeeName?: string;
+  employeeRole?: string;
+}
+
 export interface SyncHistory {
   id: number;
   syncType: SyncType;
