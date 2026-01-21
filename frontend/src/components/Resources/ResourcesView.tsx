@@ -268,64 +268,64 @@ export default function ResourcesView() {
   }
 
   return (
-    <div className="p-6 h-[calc(100vh-3.5rem)] flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold text-white">Resources</h2>
-          <div className="flex items-center gap-1 text-sm text-emerald-400">
-            <Cloud size={14} />
+    <div className="p-2 h-[calc(100vh-3.5rem)] flex flex-col">
+      {/* Header - Compact */}
+      <div className="flex items-center justify-between mb-2 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <h2 className="text-base font-semibold text-white">Resources</h2>
+          <div className="flex items-center gap-1 text-xs text-emerald-400">
+            <Cloud size={12} />
             <span>Connected</span>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Team filter */}
           <TeamFilter teams={teamList} value={teamFilter} onChange={setTeamFilter} />
 
           {/* View mode toggle */}
-          <div className="flex items-center bg-board-border rounded-md">
+          <div className="flex items-center bg-board-border rounded">
             <button
               onClick={() => setViewMode('whiteboard')}
-              className={`p-2 rounded-l-md transition-colors ${
+              className={`p-1.5 rounded-l transition-colors ${
                 viewMode === 'whiteboard' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'
               }`}
               title="Whiteboard view"
             >
-              <LayoutGrid size={18} />
+              <LayoutGrid size={14} />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-r-md transition-colors ${
+              className={`p-1.5 rounded-r transition-colors ${
                 viewMode === 'list' ? 'bg-purple-500 text-white' : 'text-gray-400 hover:text-white'
               }`}
               title="List view"
             >
-              <List size={18} />
+              <List size={14} />
             </button>
           </div>
 
           <button
             onClick={handleCreateEmployee}
-            className="flex items-center gap-2 px-3 py-2 bg-board-border hover:bg-board-border/70 text-white rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1.5 bg-board-border hover:bg-board-border/70 text-white rounded text-xs transition-colors"
           >
-            <UserPlus size={18} />
-            <span>Add Employee</span>
+            <UserPlus size={14} />
+            <span>Employee</span>
           </button>
 
           <button
             onClick={() => handleCreateTask()}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-2 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs transition-colors"
           >
-            <Plus size={18} />
-            <span>New Task</span>
+            <Plus size={14} />
+            <span>Task</span>
           </button>
         </div>
       </div>
 
       {/* Error message */}
       {error && (
-        <div className="mb-4 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-3 text-red-400 flex-shrink-0">
-          <AlertCircle size={20} />
+        <div className="mb-2 px-2 py-1.5 bg-red-500/10 border border-red-500/30 rounded flex items-center gap-2 text-red-400 text-xs flex-shrink-0">
+          <AlertCircle size={14} />
           <span>{error}</span>
         </div>
       )}
@@ -346,31 +346,39 @@ export default function ResourcesView() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <div className="flex gap-4 overflow-x-auto flex-1 pb-4">
-            {/* Unassigned column */}
-            <EmployeeColumn
-              id="unassigned"
-              title="Unassigned"
-              tasks={taskMap.unassigned || []}
-              onAddTask={() => handleCreateTask()}
-              onEditTask={handleEditTask}
-              onDeleteTask={handleDeleteTask}
-            />
-
-            {/* Employee columns */}
-            {employeeList.map((emp) => (
+          {/* Grid layout - fits employees in rows */}
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            <div
+              className="grid gap-1.5 min-h-full"
+              style={{
+                gridTemplateColumns: `repeat(auto-fill, minmax(160px, 1fr))`,
+              }}
+            >
+              {/* Unassigned column */}
               <EmployeeColumn
-                key={emp.id}
-                id={`employee-${emp.id}`}
-                title={emp.displayName || `${emp.firstName} ${emp.lastName}`}
-                employee={emp}
-                tasks={taskMap[emp.id] || []}
-                onAddTask={() => handleCreateTask(emp.id)}
+                id="unassigned"
+                title="Unassigned"
+                tasks={taskMap.unassigned || []}
+                onAddTask={() => handleCreateTask()}
                 onEditTask={handleEditTask}
                 onDeleteTask={handleDeleteTask}
-                onEditEmployee={() => handleEditEmployee(emp)}
               />
-            ))}
+
+              {/* Employee columns */}
+              {employeeList.map((emp) => (
+                <EmployeeColumn
+                  key={emp.id}
+                  id={`employee-${emp.id}`}
+                  title={emp.displayName || `${emp.firstName} ${emp.lastName}`}
+                  employee={emp}
+                  tasks={taskMap[emp.id] || []}
+                  onAddTask={() => handleCreateTask(emp.id)}
+                  onEditTask={handleEditTask}
+                  onDeleteTask={handleDeleteTask}
+                  onEditEmployee={() => handleEditEmployee(emp)}
+                />
+              ))}
+            </div>
           </div>
 
           <DragOverlay>

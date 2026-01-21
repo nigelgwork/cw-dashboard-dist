@@ -48,59 +48,67 @@ export default function EmployeeColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex-shrink-0 w-72 bg-board-panel border border-board-border rounded-lg flex flex-col max-h-full ${
-        isOver ? 'ring-2 ring-purple-500/50' : ''
+      className={`bg-board-panel rounded-md flex flex-col min-h-0 h-full overflow-hidden ${
+        isOver ? 'ring-1 ring-purple-500/50' : ''
       }`}
     >
-      {/* Header */}
-      <div className="p-3 border-b border-board-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Header - Compact */}
+      <div className="px-1.5 py-1 bg-slate-700 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {employee ? (
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
               style={{ backgroundColor: employee.color }}
             >
-              {employee.firstName[0]}
-              {employee.lastName[0]}
+              {employee.firstName?.[0] || '?'}
             </div>
           ) : (
-            <div className="w-8 h-8 rounded-full bg-board-border flex items-center justify-center">
-              <User size={16} className="text-gray-400" />
+            <div className="w-6 h-6 rounded-full bg-board-border flex items-center justify-center flex-shrink-0">
+              <User size={12} className="text-gray-400" />
             </div>
           )}
-          <div>
-            <h3 className="text-white font-medium text-sm">{title}</h3>
-            <span className="text-xs text-gray-500">{tasks.length} tasks</span>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-white font-medium text-xs truncate">{title}</h3>
+            <span className="text-[10px] text-gray-400">{tasks.length}</span>
           </div>
         </div>
 
-        {employee && onEditEmployee && (
-          <div className="relative" ref={menuRef}>
-            <button
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-1 text-gray-400 hover:text-white rounded transition-colors"
-            >
-              <MoreVertical size={16} />
-            </button>
-            {showMenu && (
-              <div className="absolute right-0 mt-1 w-32 bg-board-bg border border-board-border rounded-md shadow-lg z-10">
-                <button
-                  onClick={() => {
-                    setShowMenu(false);
-                    onEditEmployee();
-                  }}
-                  className="block w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-board-border/50 transition-colors"
-                >
-                  Edit Employee
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <button
+            onClick={onAddTask}
+            className="p-0.5 text-gray-400 hover:text-white rounded transition-colors"
+            title="Add task"
+          >
+            <Plus size={12} />
+          </button>
+          {employee && onEditEmployee && (
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="p-0.5 text-gray-400 hover:text-white rounded transition-colors"
+              >
+                <MoreVertical size={12} />
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 mt-1 w-24 bg-board-bg border border-board-border rounded shadow-lg z-10">
+                  <button
+                    onClick={() => {
+                      setShowMenu(false);
+                      onEditEmployee();
+                    }}
+                    className="block w-full px-2 py-1.5 text-left text-xs text-gray-300 hover:bg-board-border/50 transition-colors"
+                  >
+                    Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Tasks */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
+      {/* Tasks - Compact spacing */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-1 space-y-0.5 bg-board-bg">
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <TaskCard
@@ -111,23 +119,6 @@ export default function EmployeeColumn({
             />
           ))}
         </SortableContext>
-
-        {tasks.length === 0 && (
-          <div className="text-center py-8 text-gray-500 text-sm">
-            No tasks assigned
-          </div>
-        )}
-      </div>
-
-      {/* Add task button */}
-      <div className="p-2 border-t border-board-border">
-        <button
-          onClick={onAddTask}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-board-border/50 rounded transition-colors text-sm"
-        >
-          <Plus size={16} />
-          <span>Add Task</span>
-        </button>
       </div>
     </div>
   );
