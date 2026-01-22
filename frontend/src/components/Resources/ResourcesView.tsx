@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, List, LayoutGrid, UserPlus, AlertCircle, Cloud, CloudOff, Eye, EyeOff, GripVertical } from 'lucide-react';
+import { Plus, List, LayoutGrid, UserPlus, AlertCircle, Cloud, CloudOff, Eye, EyeOff, GripVertical, Grid3X3 } from 'lucide-react';
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { employees, resourceTasks, cloud, teams, projects } from '../../api';
+import { employees, resourceTasks, cloud, teams, projects, settings } from '../../api';
 import type { Employee, ResourceTask, CloudStatus, Team, Project, CreateResourceTaskData, CreateEmployeeData } from '../../types';
 import EmployeeColumn from './EmployeeColumn';
 import TaskCard from './TaskCard';
@@ -14,6 +14,19 @@ import TeamFilter from './TeamFilter';
 type ViewMode = 'whiteboard' | 'list';
 type TaskMapType = Record<number | 'unassigned', ResourceTask[]>;
 type DragItemType = 'task' | 'employee';
+
+// Grid column options
+const GRID_COLUMN_OPTIONS = [
+  { value: 'auto', label: 'Auto' },
+  { value: '6', label: '6' },
+  { value: '8', label: '8' },
+  { value: '10', label: '10' },
+  { value: '12', label: '12' },
+  { value: '14', label: '14' },
+  { value: '16', label: '16' },
+] as const;
+
+const GRID_COLUMNS_SETTING_KEY = 'resources_grid_columns';
 
 // Filter tasks based on showCompleted setting
 function filterTasks(tasks: ResourceTask[], showCompleted: boolean): ResourceTask[] {
@@ -198,6 +211,7 @@ export default function ResourcesView() {
   // Filters
   const [teamFilter, setTeamFilter] = useState<number | ''>('');
   const [showCompleted, setShowCompleted] = useState(false);
+  const [gridColumns, setGridColumns] = useState<string>('auto');
 
   // Drag state
   const [activeTask, setActiveTask] = useState<ResourceTask | null>(null);
@@ -211,6 +225,23 @@ export default function ResourcesView() {
       },
     })
   );
+
+  // Load grid columns setting
+  useEffect(() => {
+    if (settings) {
+      settings.get(GRID_COLUMNS_SETTING_KEY).then((value) => {
+        if (value) setGridColumns(value);
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Handle grid columns change
+  const handleGridColumnsChange = useCallback((value: string) => {
+    setGridColumns(value);
+    if (settings) {
+      settings.set(GRID_COLUMNS_SETTING_KEY, value).catch(() => {});
+    }
+  }, []);
 
   const loadData = useCallback(async () => {
     if (!employees || !resourceTasks || !cloud) return;
@@ -510,6 +541,23 @@ export default function ResourcesView() {
             <span>Done</span>
           </button>
 
+          {/* Grid columns selector */}
+          <div className="flex items-center gap-1 bg-board-border rounded px-2 py-1">
+            <Grid3X3 size={12} className="text-gray-400" />
+            <select
+              value={gridColumns}
+              onChange={(e) => handleGridColumnsChange(e.target.value)}
+              className="bg-transparent text-xs text-gray-300 focus:outline-none cursor-pointer"
+              title="Grid columns"
+            >
+              {GRID_COLUMN_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} className="bg-board-panel">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* View mode toggle */}
           <div className="flex items-center bg-board-border rounded">
             <button
@@ -579,7 +627,9 @@ export default function ResourcesView() {
             <div
               className="grid gap-1.5 min-h-full"
               style={{
-                gridTemplateColumns: `repeat(auto-fill, minmax(160px, 1fr))`,
+                gridTemplateColumns: gridColumns === 'auto'
+                  ? 'repeat(auto-fill, minmax(160px, 1fr))'
+                  : `repeat(${gridColumns}, 1fr)`,
               }}
             >
               {/* Employee columns - sortable */}
