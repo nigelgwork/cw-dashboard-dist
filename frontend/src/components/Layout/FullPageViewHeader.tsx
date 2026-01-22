@@ -1,7 +1,24 @@
-import { Search, Filter, LayoutGrid, List, Code, Settings, LucideIcon } from 'lucide-react';
+import { Search, Filter, LayoutGrid, List, Code, Settings, Clock, LucideIcon } from 'lucide-react';
 import { isElectron } from '../../api';
 
 export type ViewMode = 'detailed' | 'compact' | 'raw';
+
+// Format relative time for sync status
+export const formatLastSync = (dateStr: string | null): string => {
+  if (!dateStr) return 'Never';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+};
 
 interface FullPageViewHeaderProps {
   icon: LucideIcon;
@@ -18,6 +35,7 @@ interface FullPageViewHeaderProps {
   onSearchChange: (text: string) => void;
   showDetailSettings?: boolean;
   onOpenDetailSettings?: () => void;
+  lastSync?: string | null;
 }
 
 export default function FullPageViewHeader({
@@ -35,6 +53,7 @@ export default function FullPageViewHeader({
   onSearchChange,
   showDetailSettings,
   onOpenDetailSettings,
+  lastSync,
 }: FullPageViewHeaderProps) {
   return (
     <div className="flex items-center gap-3 px-4 py-3 bg-board-panel border-b border-board-border flex-shrink-0">
@@ -45,6 +64,14 @@ export default function FullPageViewHeader({
           {itemCount}{hasActiveFilters ? `/${totalCount}` : ''}
         </span>
       </div>
+
+      {/* Sync status */}
+      {lastSync !== undefined && (
+        <div className="flex items-center gap-1.5 text-gray-400 text-xs">
+          <Clock size={12} />
+          <span>Synced: <span className="text-gray-300">{formatLastSync(lastSync)}</span></span>
+        </div>
+      )}
 
       {/* View mode toggle */}
       <div className="flex items-center bg-board-bg border border-board-border rounded-lg overflow-hidden">

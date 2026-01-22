@@ -582,16 +582,6 @@ export default function ResourcesView() {
                 gridTemplateColumns: `repeat(auto-fill, minmax(160px, 1fr))`,
               }}
             >
-              {/* Unassigned column */}
-              <EmployeeColumn
-                id="unassigned"
-                title="Unassigned"
-                tasks={filterTasks(taskMap.unassigned || [], showCompleted)}
-                onAddTask={() => handleCreateTask()}
-                onEditTask={handleEditTask}
-                onDeleteTask={handleDeleteTask}
-              />
-
               {/* Employee columns - sortable */}
               <SortableContext
                 items={employeeList.map((e) => `emp-sortable-${e.id}`)}
@@ -609,6 +599,16 @@ export default function ResourcesView() {
                   />
                 ))}
               </SortableContext>
+
+              {/* Unassigned column - at the end */}
+              <EmployeeColumn
+                id="unassigned"
+                title="Unassigned"
+                tasks={filterTasks(taskMap.unassigned || [], showCompleted)}
+                onAddTask={() => handleCreateTask()}
+                onEditTask={handleEditTask}
+                onDeleteTask={handleDeleteTask}
+              />
             </div>
           </div>
 
@@ -636,18 +636,6 @@ export default function ResourcesView() {
       {/* List view - grouped by employee */}
       {!loading && viewMode === 'list' && (
         <div className="flex-1 overflow-y-auto space-y-3">
-          {/* Unassigned tasks */}
-          {filterTasks(taskMap.unassigned || [], showCompleted).length > 0 && (
-            <EmployeeTaskGroup
-              title="Unassigned"
-              color="#6B7280"
-              tasks={filterTasks(taskMap.unassigned || [], showCompleted)}
-              onEditTask={handleEditTask}
-              onDeleteTask={handleDeleteTask}
-              onAddTask={() => handleCreateTask()}
-            />
-          )}
-
           {/* Employee task groups */}
           {employeeList.map((emp) => {
             const empTasks = filterTasks(taskMap[emp.id] || [], showCompleted);
@@ -664,6 +652,18 @@ export default function ResourcesView() {
               />
             );
           })}
+
+          {/* Unassigned tasks - at the end */}
+          {filterTasks(taskMap.unassigned || [], showCompleted).length > 0 && (
+            <EmployeeTaskGroup
+              title="Unassigned"
+              color="#6B7280"
+              tasks={filterTasks(taskMap.unassigned || [], showCompleted)}
+              onEditTask={handleEditTask}
+              onDeleteTask={handleDeleteTask}
+              onAddTask={() => handleCreateTask()}
+            />
+          )}
         </div>
       )}
 

@@ -1,13 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, LayoutDashboard, FolderKanban, TrendingUp, Ticket, Pin, AlertCircle, Clock, Database, Settings, Download, ArrowDownToLine, FileText, Users } from 'lucide-react';
-import { sync, isElectron, events, updates } from '../../api';
-
-interface SyncStatus {
-  last_sync: string | null;
-  project_count: number;
-  opportunity_count: number;
-  service_ticket_count?: number;
-}
+import { RefreshCw, LayoutDashboard, FolderKanban, TrendingUp, Ticket, Pin, AlertCircle, Database, Settings, Download, ArrowDownToLine, FileText, Users } from 'lucide-react';
+import { isElectron, events, updates } from '../../api';
 
 interface UpdateState {
   available: boolean;
@@ -28,37 +21,20 @@ interface HeaderProps {
   pinnedCount?: number;
 }
 
-const tabs: { id: ViewType; label: string; icon: React.ReactNode }[] = [
+const tabs: { id: ViewType; label: string; icon: React.ReactNode; iconOnly?: boolean }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <Pin size={16} /> },
   { id: 'projects', label: 'Projects', icon: <FolderKanban size={16} /> },
   { id: 'opportunities', label: 'Opportunities', icon: <TrendingUp size={16} /> },
   { id: 'service-tickets', label: 'Tickets', icon: <Ticket size={16} /> },
   { id: 'quotes', label: 'Quotes', icon: <FileText size={16} /> },
   { id: 'resources', label: 'Resources', icon: <Users size={16} /> },
-  { id: 'sync', label: 'Data Sync', icon: <Database size={16} /> },
-  { id: 'settings', label: 'Settings', icon: <Settings size={16} /> },
+  { id: 'sync', label: 'Sync', icon: <Database size={16} /> },
+  { id: 'settings', label: 'Settings', icon: <Settings size={16} />, iconOnly: true },
 ];
-
-const formatLastSync = (dateStr: string | null): string => {
-  if (!dateStr) return 'Never';
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
-};
 
 export default function Header({ activeView, onViewChange, pinnedCount = 0 }: HeaderProps) {
   const isElectronApp = isElectron();
   const [newVersionAvailable, setNewVersionAvailable] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [updateState, setUpdateState] = useState<UpdateState>({
     available: false,
     downloading: false,
@@ -84,43 +60,15 @@ export default function Header({ activeView, onViewChange, pinnedCount = 0 }: He
     }
   }, [isElectronApp]);
 
-  // Fetch sync status
-  const fetchSyncStatus = useCallback(async () => {
-    try {
-      const status = await sync.getStatus();
-      // Map the response to our SyncStatus interface
-      setSyncStatus({
-        last_sync: status.projects?.lastSync || status.opportunities?.lastSync || null,
-        project_count: status.projects?.recordsSynced || 0,
-        opportunity_count: status.opportunities?.recordsSynced || 0,
-        service_ticket_count: status.serviceTickets?.recordsSynced || 0,
-      });
-    } catch {
-      // Silently fail
-    }
-  }, []);
-
   useEffect(() => {
-    // Check version and sync status on mount and periodically
+    // Check version on mount and periodically
     checkVersion();
-    fetchSyncStatus();
     const versionInterval = isElectronApp ? null : setInterval(checkVersion, 30000);
-    const syncInterval = setInterval(fetchSyncStatus, 60000);
-
-    // In Electron, also listen for sync:completed events
-    let unsubCompleted: (() => void) | undefined;
-    if (isElectronApp && events) {
-      unsubCompleted = events.on('sync:completed', () => {
-        fetchSyncStatus();
-      });
-    }
 
     return () => {
       if (versionInterval) clearInterval(versionInterval);
-      clearInterval(syncInterval);
-      if (unsubCompleted) unsubCompleted();
     };
-  }, [checkVersion, fetchSyncStatus, isElectronApp]);
+  }, [checkVersion, isElectronApp]);
 
   // Listen for Electron update events
   useEffect(() => {
@@ -283,14 +231,15 @@ export default function Header({ activeView, onViewChange, pinnedCount = 0 }: He
             <button
               key={tab.id}
               onClick={() => onViewChange(tab.id)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 ${tab.iconOnly ? 'px-2' : 'px-3'} py-1.5 rounded-md text-sm font-medium transition-colors ${
                 activeView === tab.id
                   ? 'bg-blue-500/20 text-blue-400'
                   : 'text-gray-400 hover:text-white hover:bg-board-border/50'
               }`}
+              title={tab.label}
             >
               {tab.icon}
-              <span>{tab.label}</span>
+              {!tab.iconOnly && <span>{tab.label}</span>}
               {tab.id === 'dashboard' && pinnedCount > 0 && (
                 <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-500/30 text-blue-300 rounded-full">
                   {pinnedCount}
@@ -302,19 +251,6 @@ export default function Header({ activeView, onViewChange, pinnedCount = 0 }: He
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Last sync time */}
-        {syncStatus && (
-          <div className="flex items-center gap-1.5 text-gray-400">
-            <Clock size={14} />
-            <span className="text-xs">
-              Synced: <span className="text-white">{formatLastSync(syncStatus.last_sync)}</span>
-            </span>
-            <span className="text-xs text-gray-500">
-              ({syncStatus.project_count}P / {syncStatus.opportunity_count}O / {syncStatus.service_ticket_count || 0}T)
-            </span>
-          </div>
-        )}
-
         {/* Desktop mode indicator - only show in Electron when no update UI */}
         {isElectronApp && !updateState.available && !updateState.downloading && !updateState.downloaded && (
           <div className="flex items-center gap-2">

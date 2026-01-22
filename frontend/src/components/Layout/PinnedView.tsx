@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
-import { Pin, FolderKanban, TrendingUp, Ticket } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Pin, FolderKanban, TrendingUp, Ticket, Clock } from 'lucide-react';
 import { Project, Opportunity, ServiceTicket } from '../../types';
-import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron, settings } from '../../api';
+import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron, settings, sync, events } from '../../api';
+import { formatLastSync } from './FullPageViewHeader';
 import { useWebSocket } from '../../context/WebSocketContext';
 import ProjectCard from '../Project/ProjectCard';
 import OpportunityCard from '../Opportunity/OpportunityCard';
@@ -19,6 +20,12 @@ interface PinnedViewProps {
   togglePin: (type: ItemType, id: number) => void;
 }
 
+interface SyncStatusState {
+  projects: string | null;
+  opportunities: string | null;
+  serviceTickets: string | null;
+}
+
 export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinnedServiceTickets, togglePin }: PinnedViewProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -28,6 +35,47 @@ export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinned
 
   // Detail fields to display on project cards
   const [visibleDetailFields, setVisibleDetailFields] = useState<string[]>([]);
+
+  // Sync status for all types
+  const [syncStatus, setSyncStatus] = useState<SyncStatusState>({
+    projects: null,
+    opportunities: null,
+    serviceTickets: null,
+  });
+
+  const isElectronApp = isElectron();
+
+  // Fetch sync status
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const status = await sync.getStatus();
+      setSyncStatus({
+        projects: status.projects?.lastSync || null,
+        opportunities: status.opportunities?.lastSync || null,
+        serviceTickets: status.serviceTickets?.lastSync || null,
+      });
+    } catch {
+      // Silently fail
+    }
+  }, []);
+
+  // Fetch sync status on mount and listen for sync completed events
+  useEffect(() => {
+    fetchSyncStatus();
+    const interval = setInterval(fetchSyncStatus, 60000);
+
+    let unsubCompleted: (() => void) | undefined;
+    if (isElectronApp && events) {
+      unsubCompleted = events.on('sync:completed', () => {
+        fetchSyncStatus();
+      });
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (unsubCompleted) unsubCompleted();
+    };
+  }, [fetchSyncStatus, isElectronApp]);
 
   // Fetch visible detail fields setting
   useEffect(() => {
@@ -69,7 +117,6 @@ export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinned
   }, [pinnedProjects, pinnedOpportunities, pinnedServiceTickets]);
 
   // Handle WebSocket updates (web mode only - Electron uses IPC events)
-  const isElectronApp = isElectron();
   useEffect(() => {
     if (isElectronApp || !lastMessage) return;
     const { type } = lastMessage;
@@ -114,13 +161,32 @@ export default function PinnedView({ pinnedProjects, pinnedOpportunities, pinned
   return (
     <div className="h-[calc(100vh-56px)] flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-board-panel border-b border-board-border flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 bg-board-panel border-b border-board-border flex-shrink-0">
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500">
           <Pin size={16} className="text-white" />
           <span className="text-white font-semibold">Pinned Items</span>
           <span className="text-white/80 text-sm">
             {projects.length + opportunities.length + serviceTickets.length}
           </span>
+        </div>
+
+        {/* Sync status for all types */}
+        <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <FolderKanban size={12} className="text-purple-400" />
+            <Clock size={10} />
+            <span className="text-gray-300">{formatLastSync(syncStatus.projects)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <TrendingUp size={12} className="text-emerald-400" />
+            <Clock size={10} />
+            <span className="text-gray-300">{formatLastSync(syncStatus.opportunities)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-gray-400">
+            <Ticket size={12} className="text-orange-400" />
+            <Clock size={10} />
+            <span className="text-gray-300">{formatLastSync(syncStatus.serviceTickets)}</span>
+          </div>
         </div>
       </div>
 

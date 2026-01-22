@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { FolderKanban, TrendingUp, Ticket } from 'lucide-react';
 import { Project, Opportunity, ServiceTicket } from '../../types';
-import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron, settings } from '../../api';
+import { projects as projectsApi, opportunities as opportunitiesApi, serviceTickets as serviceTicketsApi, isElectron, settings, sync, events } from '../../api';
 import { useWebSocket } from '../../context/WebSocketContext';
 import ProjectCard from '../Project/ProjectCard';
 import OpportunityCard from '../Opportunity/OpportunityCard';
@@ -70,6 +70,46 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   const [visibleDetailFields, setVisibleDetailFields] = useState<string[]>([]);
   const [showDetailFieldsModal, setShowDetailFieldsModal] = useState(false);
 
+  // Check if running in Electron
+  const isElectronApp = isElectron();
+
+  // Sync status for this page type
+  const [lastSync, setLastSync] = useState<string | null>(null);
+
+  // Fetch sync status
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const status = await sync.getStatus();
+      if (type === 'projects') {
+        setLastSync(status.projects?.lastSync || null);
+      } else if (type === 'opportunities') {
+        setLastSync(status.opportunities?.lastSync || null);
+      } else if (type === 'service-tickets') {
+        setLastSync(status.serviceTickets?.lastSync || null);
+      }
+    } catch {
+      // Silently fail
+    }
+  }, [type]);
+
+  // Fetch sync status on mount and listen for sync completed events
+  useEffect(() => {
+    fetchSyncStatus();
+    const interval = setInterval(fetchSyncStatus, 60000);
+
+    let unsubCompleted: (() => void) | undefined;
+    if (isElectronApp && events) {
+      unsubCompleted = events.on('sync:completed', () => {
+        fetchSyncStatus();
+      });
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (unsubCompleted) unsubCompleted();
+    };
+  }, [fetchSyncStatus, isElectronApp]);
+
   // Fetch visible detail fields setting
   useEffect(() => {
     if (type === 'projects' && settings) {
@@ -128,7 +168,6 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   }, [type]);
 
   // Handle WebSocket updates (web mode only - Electron uses IPC events)
-  const isElectronApp = isElectron();
   useEffect(() => {
     if (isElectronApp || !lastMessage) return;
     const { type: msgType } = lastMessage;
@@ -250,6 +289,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
         onSearchChange={setSearchText}
         showDetailSettings={type === 'projects'}
         onOpenDetailSettings={() => setShowDetailFieldsModal(true)}
+        lastSync={lastSync}
       />
 
       {/* Filters */}
