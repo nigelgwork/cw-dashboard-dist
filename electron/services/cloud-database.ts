@@ -147,27 +147,62 @@ function maskConnectionString(connStr: string): string {
   }
 }
 
+// Prefixes to identify storage format
+const ENCRYPTED_PREFIX = 'enc:';
+const BASE64_PREFIX = 'b64:';
+
 /**
  * Encrypt connection string using Electron's safeStorage
  */
 function encryptConnectionString(plaintext: string): string {
   if (!safeStorage.isEncryptionAvailable()) {
     console.warn('[CloudDB] Encryption not available, storing in base64');
-    return Buffer.from(plaintext).toString('base64');
+    return BASE64_PREFIX + Buffer.from(plaintext).toString('base64');
   }
-  return safeStorage.encryptString(plaintext).toString('base64');
+  return ENCRYPTED_PREFIX + safeStorage.encryptString(plaintext).toString('base64');
 }
 
 /**
  * Decrypt connection string
  */
 function decryptConnectionString(encrypted: string): string {
-  if (!safeStorage.isEncryptionAvailable()) {
-    return Buffer.from(encrypted, 'base64').toString('utf8');
+  // Handle prefixed format (new)
+  if (encrypted.startsWith(BASE64_PREFIX)) {
+    const data = encrypted.slice(BASE64_PREFIX.length);
+    return Buffer.from(data, 'base64').toString('utf8');
   }
+
+  if (encrypted.startsWith(ENCRYPTED_PREFIX)) {
+    const data = encrypted.slice(ENCRYPTED_PREFIX.length);
+    try {
+      const buffer = Buffer.from(data, 'base64');
+      return safeStorage.decryptString(buffer);
+    } catch (error) {
+      console.error('[CloudDB] Failed to decrypt with safeStorage, trying base64 fallback:', error);
+      // If safeStorage decryption fails, try base64 as fallback
+      // (in case encryption became unavailable)
+      try {
+        return Buffer.from(data, 'base64').toString('utf8');
+      } catch {
+        throw new Error('Failed to decrypt connection string');
+      }
+    }
+  }
+
+  // Handle legacy format (no prefix) - try both methods
+  console.warn('[CloudDB] Legacy format detected, attempting decryption');
+  if (safeStorage.isEncryptionAvailable()) {
+    try {
+      const buffer = Buffer.from(encrypted, 'base64');
+      return safeStorage.decryptString(buffer);
+    } catch {
+      // Fall through to base64
+    }
+  }
+
+  // Try base64 decode
   try {
-    const buffer = Buffer.from(encrypted, 'base64');
-    return safeStorage.decryptString(buffer);
+    return Buffer.from(encrypted, 'base64').toString('utf8');
   } catch (error) {
     console.error('[CloudDB] Failed to decrypt connection string:', error);
     throw new Error('Failed to decrypt connection string');
@@ -182,8 +217,16 @@ export function getConnectionString(): string | null {
   if (!encrypted) return null;
 
   try {
-    return decryptConnectionString(encrypted);
-  } catch {
+    const decrypted = decryptConnectionString(encrypted);
+    // Validate it looks like a connection string
+    if (decrypted && decrypted.startsWith('postgres')) {
+      return decrypted;
+    }
+    console.error('[CloudDB] Decrypted value does not look like a connection string');
+    return null;
+  } catch (error) {
+    console.error('[CloudDB] Failed to retrieve connection string:', error);
+    connectionStatus.lastError = 'Failed to decrypt saved connection string';
     return null;
   }
 }
