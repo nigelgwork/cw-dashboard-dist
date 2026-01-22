@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, List, LayoutGrid, UserPlus, AlertCircle, Cloud, CloudOff } from 'lucide-react';
+import { Plus, List, LayoutGrid, UserPlus, AlertCircle, Cloud, CloudOff, Eye, EyeOff, GripVertical } from 'lucide-react';
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, closestCenter, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { employees, resourceTasks, cloud, teams, projects } from '../../api';
 import type { Employee, ResourceTask, CloudStatus, Team, Project, CreateResourceTaskData, CreateEmployeeData } from '../../types';
 import EmployeeColumn from './EmployeeColumn';
@@ -11,6 +13,171 @@ import TeamFilter from './TeamFilter';
 
 type ViewMode = 'whiteboard' | 'list';
 type TaskMapType = Record<number | 'unassigned', ResourceTask[]>;
+type DragItemType = 'task' | 'employee';
+
+// Filter tasks based on showCompleted setting
+function filterTasks(tasks: ResourceTask[], showCompleted: boolean): ResourceTask[] {
+  if (showCompleted) return tasks;
+  return tasks.filter((t) => t.status !== 'done');
+}
+
+// Sortable wrapper for employee columns
+interface SortableEmployeeColumnProps {
+  employee: Employee;
+  tasks: ResourceTask[];
+  onAddTask: () => void;
+  onEditTask: (task: ResourceTask) => void;
+  onDeleteTask: (id: number) => void;
+  onEditEmployee: () => void;
+}
+
+function SortableEmployeeColumn({
+  employee,
+  tasks,
+  onAddTask,
+  onEditTask,
+  onDeleteTask,
+  onEditEmployee,
+}: SortableEmployeeColumnProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: `emp-sortable-${employee.id}`,
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative">
+      {/* Drag handle overlay */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-0 left-0 right-0 h-7 cursor-grab z-10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+        title="Drag to reorder"
+      >
+        <GripVertical size={12} className="text-gray-400" />
+      </div>
+      <EmployeeColumn
+        id={`employee-${employee.id}`}
+        title={employee.displayName || `${employee.firstName} ${employee.lastName}`}
+        employee={employee}
+        tasks={tasks}
+        onAddTask={onAddTask}
+        onEditTask={onEditTask}
+        onDeleteTask={onDeleteTask}
+        onEditEmployee={onEditEmployee}
+      />
+    </div>
+  );
+}
+
+// Employee task group for list view
+interface EmployeeTaskGroupProps {
+  title: string;
+  color: string;
+  tasks: ResourceTask[];
+  onEditTask: (task: ResourceTask) => void;
+  onDeleteTask: (id: number) => void;
+  onAddTask: () => void;
+  onEditEmployee?: () => void;
+}
+
+function EmployeeTaskGroup({
+  title,
+  color,
+  tasks,
+  onEditTask,
+  onDeleteTask,
+  onAddTask,
+  onEditEmployee,
+}: EmployeeTaskGroupProps) {
+  return (
+    <div className="bg-board-panel border border-board-border rounded-lg overflow-hidden">
+      {/* Employee header */}
+      <div className="px-3 py-2 bg-slate-700 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+            style={{ backgroundColor: color }}
+          >
+            {title[0]}
+          </div>
+          <span className="text-sm font-medium text-white">{title}</span>
+          <span className="text-xs text-gray-400">({tasks.length} tasks)</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onAddTask}
+            className="text-xs text-gray-400 hover:text-white transition-colors"
+          >
+            + Add Task
+          </button>
+          {onEditEmployee && (
+            <button
+              onClick={onEditEmployee}
+              className="text-xs text-gray-400 hover:text-white transition-colors"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Tasks table */}
+      {tasks.length > 0 ? (
+        <table className="w-full">
+          <thead className="bg-board-border/30">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400">Client / Project</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 w-24">Status</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 w-24">Priority</th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-400 w-28">Due</th>
+              <th className="px-3 py-2 text-right text-xs font-medium text-gray-400 w-24">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-board-border/50">
+            {tasks.map((task) => (
+              <tr key={task.id} className="hover:bg-board-border/20 transition-colors">
+                <td className="px-3 py-2">
+                  <div className="text-sm text-white">{task.clientName || 'No Client'}</div>
+                  <div className="text-xs text-gray-500">{task.projectName || task.description || '-'}</div>
+                </td>
+                <td className="px-3 py-2">
+                  <StatusBadge status={task.status} />
+                </td>
+                <td className="px-3 py-2">
+                  <PriorityBadge priority={task.priority} />
+                </td>
+                <td className="px-3 py-2 text-xs text-gray-400">
+                  {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    onClick={() => onEditTask(task)}
+                    className="text-blue-400 hover:text-blue-300 text-xs mr-2"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => onDeleteTask(task.id)}
+                    className="text-red-400 hover:text-red-300 text-xs"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : (
+        <div className="px-3 py-4 text-center text-xs text-gray-500">No tasks</div>
+      )}
+    </div>
+  );
+}
 
 export default function ResourcesView() {
   const [employeeList, setEmployeeList] = useState<Employee[]>([]);
@@ -30,9 +197,12 @@ export default function ResourcesView() {
 
   // Filters
   const [teamFilter, setTeamFilter] = useState<number | ''>('');
+  const [showCompleted, setShowCompleted] = useState(false);
 
   // Drag state
   const [activeTask, setActiveTask] = useState<ResourceTask | null>(null);
+  const [activeEmployee, setActiveEmployee] = useState<Employee | null>(null);
+  const [dragType, setDragType] = useState<DragItemType | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -115,13 +285,26 @@ export default function ResourcesView() {
   // Drag handlers
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    const taskId = active.id as number;
+    const activeId = active.id as string;
 
-    // Find the task
+    // Check if dragging an employee column
+    if (activeId.startsWith('emp-sortable-')) {
+      const empId = parseInt(activeId.replace('emp-sortable-', ''));
+      const emp = employeeList.find((e) => e.id === empId);
+      if (emp) {
+        setActiveEmployee(emp);
+        setDragType('employee');
+        return;
+      }
+    }
+
+    // Otherwise it's a task
+    const taskId = active.id as number;
     for (const tasks of Object.values(taskMap)) {
       const task = tasks.find((t) => t.id === taskId);
       if (task) {
         setActiveTask(task);
+        setDragType('task');
         break;
       }
     }
@@ -133,9 +316,42 @@ export default function ResourcesView() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    setActiveTask(null);
 
-    if (!over || !resourceTasks) return;
+    // Reset drag state
+    const wasDraggingEmployee = dragType === 'employee';
+    setActiveTask(null);
+    setActiveEmployee(null);
+    setDragType(null);
+
+    if (!over) return;
+
+    // Handle employee reordering
+    if (wasDraggingEmployee) {
+      const activeId = (active.id as string).replace('emp-sortable-', '');
+      const overId = (over.id as string).replace('emp-sortable-', '');
+
+      if (activeId !== overId && employees) {
+        const oldIndex = employeeList.findIndex((e) => e.id === parseInt(activeId));
+        const newIndex = employeeList.findIndex((e) => e.id === parseInt(overId));
+
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const newOrder = arrayMove(employeeList, oldIndex, newIndex);
+          setEmployeeList(newOrder);
+
+          // Persist the new order
+          try {
+            await employees.reorder(newOrder.map((e) => e.id));
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to reorder employees');
+            loadData(); // Revert on error
+          }
+        }
+      }
+      return;
+    }
+
+    // Handle task movement
+    if (!resourceTasks) return;
 
     const taskId = active.id as number;
     const overId = over.id as string | number;
@@ -282,6 +498,18 @@ export default function ResourcesView() {
           {/* Team filter */}
           <TeamFilter teams={teamList} value={teamFilter} onChange={setTeamFilter} />
 
+          {/* Show/hide completed toggle */}
+          <button
+            onClick={() => setShowCompleted(!showCompleted)}
+            className={`flex items-center gap-1 px-2 py-1.5 rounded text-xs transition-colors ${
+              showCompleted ? 'bg-emerald-600 text-white' : 'bg-board-border text-gray-400 hover:text-white'
+            }`}
+            title={showCompleted ? 'Hide completed tasks' : 'Show completed tasks'}
+          >
+            {showCompleted ? <Eye size={12} /> : <EyeOff size={12} />}
+            <span>Done</span>
+          </button>
+
           {/* View mode toggle */}
           <div className="flex items-center bg-board-border rounded">
             <button
@@ -358,92 +586,84 @@ export default function ResourcesView() {
               <EmployeeColumn
                 id="unassigned"
                 title="Unassigned"
-                tasks={taskMap.unassigned || []}
+                tasks={filterTasks(taskMap.unassigned || [], showCompleted)}
                 onAddTask={() => handleCreateTask()}
                 onEditTask={handleEditTask}
                 onDeleteTask={handleDeleteTask}
               />
 
-              {/* Employee columns */}
-              {employeeList.map((emp) => (
-                <EmployeeColumn
-                  key={emp.id}
-                  id={`employee-${emp.id}`}
-                  title={emp.displayName || `${emp.firstName} ${emp.lastName}`}
-                  employee={emp}
-                  tasks={taskMap[emp.id] || []}
-                  onAddTask={() => handleCreateTask(emp.id)}
-                  onEditTask={handleEditTask}
-                  onDeleteTask={handleDeleteTask}
-                  onEditEmployee={() => handleEditEmployee(emp)}
-                />
-              ))}
+              {/* Employee columns - sortable */}
+              <SortableContext
+                items={employeeList.map((e) => `emp-sortable-${e.id}`)}
+                strategy={horizontalListSortingStrategy}
+              >
+                {employeeList.map((emp) => (
+                  <SortableEmployeeColumn
+                    key={emp.id}
+                    employee={emp}
+                    tasks={filterTasks(taskMap[emp.id] || [], showCompleted)}
+                    onAddTask={() => handleCreateTask(emp.id)}
+                    onEditTask={handleEditTask}
+                    onDeleteTask={handleDeleteTask}
+                    onEditEmployee={() => handleEditEmployee(emp)}
+                  />
+                ))}
+              </SortableContext>
             </div>
           </div>
 
           <DragOverlay>
             {activeTask && <TaskCard task={activeTask} isDragging />}
+            {activeEmployee && (
+              <div className="bg-board-panel rounded-md p-2 opacity-90 shadow-lg border border-purple-500">
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                    style={{ backgroundColor: activeEmployee.color }}
+                  >
+                    {activeEmployee.firstName?.[0] || '?'}
+                  </div>
+                  <span className="text-xs text-white font-medium">
+                    {activeEmployee.displayName || activeEmployee.firstName}
+                  </span>
+                </div>
+              </div>
+            )}
           </DragOverlay>
         </DndContext>
       )}
 
-      {/* List view */}
+      {/* List view - grouped by employee */}
       {!loading && viewMode === 'list' && (
-        <div className="bg-board-panel border border-board-border rounded-lg overflow-hidden flex-1 overflow-y-auto">
-          <table className="w-full">
-            <thead className="bg-board-border/50 sticky top-0">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Task</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Project</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Assigned To</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Priority</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Due Date</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-400 uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-board-border">
-              {Object.values(taskMap)
-                .flat()
-                .map((task) => (
-                  <tr key={task.id} className="hover:bg-board-border/30 transition-colors">
-                    <td className="px-4 py-3">
-                      <div>
-                        <div className="text-sm text-white">{task.description || task.projectName || 'Untitled'}</div>
-                        {task.clientName && (
-                          <div className="text-xs text-gray-500">{task.clientName}</div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{task.projectName || '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-400">{task.employeeName || 'Unassigned'}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={task.status} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <PriorityBadge priority={task.priority} />
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-400">
-                      {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleEditTask(task)}
-                        className="text-blue-400 hover:text-blue-300 text-sm mr-3"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="text-red-400 hover:text-red-300 text-sm"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+        <div className="flex-1 overflow-y-auto space-y-3">
+          {/* Unassigned tasks */}
+          {filterTasks(taskMap.unassigned || [], showCompleted).length > 0 && (
+            <EmployeeTaskGroup
+              title="Unassigned"
+              color="#6B7280"
+              tasks={filterTasks(taskMap.unassigned || [], showCompleted)}
+              onEditTask={handleEditTask}
+              onDeleteTask={handleDeleteTask}
+              onAddTask={() => handleCreateTask()}
+            />
+          )}
+
+          {/* Employee task groups */}
+          {employeeList.map((emp) => {
+            const empTasks = filterTasks(taskMap[emp.id] || [], showCompleted);
+            return (
+              <EmployeeTaskGroup
+                key={emp.id}
+                title={emp.displayName || `${emp.firstName} ${emp.lastName}`}
+                color={emp.color}
+                tasks={empTasks}
+                onEditTask={handleEditTask}
+                onDeleteTask={handleDeleteTask}
+                onAddTask={() => handleCreateTask(emp.id)}
+                onEditEmployee={() => handleEditEmployee(emp)}
+              />
+            );
+          })}
         </div>
       )}
 
