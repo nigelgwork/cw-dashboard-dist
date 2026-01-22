@@ -28,6 +28,8 @@ interface ProjectFiltersProps {
   pmFilter: string;
   setPmFilter: (value: string) => void;
   allPMs: string[];
+  showInactive: boolean;
+  setShowInactive: (value: boolean) => void;
 }
 
 export function ProjectFilters({
@@ -37,6 +39,8 @@ export function ProjectFilters({
   pmFilter,
   setPmFilter,
   allPMs,
+  showInactive,
+  setShowInactive,
 }: ProjectFiltersProps) {
   return (
     <>
@@ -54,6 +58,15 @@ export function ProjectFilters({
         label="All PMs"
         accentColor="purple"
       />
+      <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={showInactive}
+          onChange={(e) => setShowInactive(e.target.checked)}
+          className="w-4 h-4 rounded border-board-border bg-board-bg text-purple-500 focus:ring-purple-500 focus:ring-offset-0"
+        />
+        Show Completed/Cancelled
+      </label>
     </>
   );
 }

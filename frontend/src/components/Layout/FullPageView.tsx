@@ -50,6 +50,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   // Project-specific filters
   const [statusFilter, setStatusFilter] = useState('');
   const [pmFilter, setPmFilter] = useState('');
+  const [showInactive, setShowInactive] = useState(false);
   const [projectStatuses, setProjectStatuses] = useState<string[]>([]);
 
   // Opportunity-specific filters
@@ -132,7 +133,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
       try {
         if (type === 'projects') {
           const [data, statusesData] = await Promise.all([
-            projectsApi.getAll({}),
+            projectsApi.getAll({ includeInactive: showInactive }),
             projectsApi.getStatuses(),
           ]);
           setProjects(data);
@@ -165,7 +166,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
       }
     };
     fetchData();
-  }, [type]);
+  }, [type, showInactive]);
 
   // Handle WebSocket updates (web mode only - Electron uses IPC events)
   useEffect(() => {
@@ -173,7 +174,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
     const { type: msgType } = lastMessage;
 
     if (type === 'projects' && msgType.startsWith('project_')) {
-      projectsApi.getAll({}).then(setProjects).catch(console.error);
+      projectsApi.getAll({ includeInactive: showInactive }).then(setProjects).catch(console.error);
     }
     if (type === 'opportunities' && msgType.startsWith('opportunity_')) {
       opportunitiesApi.getAll({}).then(setOpportunities).catch(console.error);
@@ -181,7 +182,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
     if (type === 'service-tickets' && msgType.startsWith('service_ticket_')) {
       serviceTicketsApi.getAll({}).then(setServiceTickets).catch(console.error);
     }
-  }, [lastMessage, type, isElectronApp]);
+  }, [lastMessage, type, isElectronApp, showInactive]);
 
   // Get unique PMs from projects
   const allPMs = useMemo(() => {
@@ -244,7 +245,7 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
   }, [serviceTickets, ticketStatusFilter, priorityFilter, assigneeFilter, searchText]);
 
   const hasActiveFilters = type === 'projects'
-    ? statusFilter !== '' || pmFilter !== '' || searchText.trim() !== ''
+    ? statusFilter !== '' || pmFilter !== '' || searchText.trim() !== '' || showInactive
     : type === 'opportunities'
     ? stageFilter !== '' || salesRepFilter !== '' || searchText.trim() !== ''
     : ticketStatusFilter !== '' || priorityFilter !== '' || assigneeFilter !== '' || searchText.trim() !== '';
@@ -303,6 +304,8 @@ export default function FullPageView({ type, isPinned, togglePin }: FullPageView
               pmFilter={pmFilter}
               setPmFilter={setPmFilter}
               allPMs={allPMs}
+              showInactive={showInactive}
+              setShowInactive={setShowInactive}
             />
           )}
           {type === 'opportunities' && (

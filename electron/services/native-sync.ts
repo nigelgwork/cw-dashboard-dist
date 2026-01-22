@@ -399,8 +399,12 @@ export async function syncProjects(
               if (detail.status) {
                 mapped.status = detail.status;
                 // Re-evaluate isActive based on new status
+                // Be specific: "Completed - Ready to Invoice" is still active
                 const lowerStatus = detail.status.toLowerCase();
-                const isInactive = lowerStatus.includes('completed') || lowerStatus.includes('cancelled') ||
+                const isExactlyCompleted = lowerStatus === 'completed' ||
+                                            lowerStatus === '6. completed' ||
+                                            (lowerStatus.includes('completed') && !lowerStatus.includes('ready to invoice'));
+                const isInactive = isExactlyCompleted || lowerStatus.includes('cancelled') ||
                                    lowerStatus.includes('closed');
                 mapped.is_active = isInactive ? 0 : 1;
               }
@@ -866,11 +870,16 @@ function mapProjectEntry(entry: AtomEntry): Record<string, unknown> {
   const status = cleanHtmlEntities(rawStatus);
 
   // Determine if active based on status
-  // Active statuses: "1. New", "2. In Progress", "3. Completed - Ready to Invoice", "4. On-Hold", "8. Re-Opened"
+  // Active statuses: "1. New", "2. In Progress", "3. Completed - Ready to Invoice", "4. On-Hold", "5. Retention", "8. Re-Opened"
   // Inactive statuses: "6. Completed", "7. Cancelled"
   // Default to active if status is empty/unknown
   const lowerStatus = status.toLowerCase();
-  const isInactive = lowerStatus.includes('completed') || lowerStatus.includes('cancelled') ||
+  // Be specific: "Completed - Ready to Invoice" is still active (invoicing work remains)
+  // Only mark as inactive if it's specifically "6. Completed" or "cancelled" or "closed"
+  const isExactlyCompleted = lowerStatus === 'completed' ||
+                              lowerStatus === '6. completed' ||
+                              (lowerStatus.includes('completed') && !lowerStatus.includes('ready to invoice'));
+  const isInactive = isExactlyCompleted || lowerStatus.includes('cancelled') ||
                      lowerStatus.includes('closed');
   const isActive = !isInactive; // Default to active, only mark inactive for completed/cancelled/closed
 
