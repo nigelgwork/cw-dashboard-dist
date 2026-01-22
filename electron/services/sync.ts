@@ -4,6 +4,17 @@ import { SyncHistoryRow, SyncChangeRow } from '../database/schema';
 import { syncProjects, syncOpportunities, syncServiceTickets } from './native-sync';
 import { getAllFeeds } from './feeds';
 
+// Track active syncs for cancellation
+const activeSyncs = new Map<number, AbortController>();
+
+/**
+ * Check if a sync has been cancelled
+ */
+export function isSyncCancelled(syncHistoryId: number): boolean {
+  const controller = activeSyncs.get(syncHistoryId);
+  return controller?.signal.aborted ?? false;
+}
+
 export interface SyncHistory {
   id: number;
   syncType: string;
@@ -140,12 +151,21 @@ async function executeSyncInBackground(
 ): Promise<void> {
   const db = getDatabase();
 
+  // Create AbortController for this sync
+  const abortController = new AbortController();
+  activeSyncs.set(syncHistoryId, abortController);
+
   try {
     // Mark as running
     db.prepare("UPDATE sync_history SET status = 'RUNNING', started_at = datetime('now') WHERE id = ?").run(syncHistoryId);
 
     if (window) {
       window.webContents.send('sync:progress', { id: syncHistoryId, syncType, status: 'RUNNING' });
+    }
+
+    // Check if already cancelled
+    if (abortController.signal.aborted) {
+      throw new Error('Sync cancelled');
     }
 
     // Get the feed for this sync type
@@ -162,16 +182,26 @@ async function executeSyncInBackground(
 
     // Run native sync for each feed
     for (const feed of feeds) {
+      // Check for cancellation before each feed
+      if (abortController.signal.aborted) {
+        throw new Error('Sync cancelled');
+      }
+
       console.log(`[Sync] Syncing ${syncType} from feed: ${feed.name}`);
 
       let result;
       if (syncType === 'PROJECTS') {
         // Pass feedId for adaptive sync (to look up linked detail feed)
-        result = await syncProjects(feed.feedUrl, syncHistoryId, feed.id);
+        result = await syncProjects(feed.feedUrl, syncHistoryId, feed.id, abortController.signal);
       } else if (syncType === 'OPPORTUNITIES') {
-        result = await syncOpportunities(feed.feedUrl, syncHistoryId);
+        result = await syncOpportunities(feed.feedUrl, syncHistoryId, abortController.signal);
       } else {
-        result = await syncServiceTickets(feed.feedUrl, syncHistoryId);
+        result = await syncServiceTickets(feed.feedUrl, syncHistoryId, abortController.signal);
+      }
+
+      // Check for cancellation after sync
+      if (abortController.signal.aborted) {
+        throw new Error('Sync cancelled');
       }
 
       if (!result.success) {
@@ -216,10 +246,12 @@ async function executeSyncInBackground(
     console.log(`[Sync] ${syncType} completed: ${totalProcessed} processed, ${totalCreated} created, ${totalUpdated} updated`);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`[Sync] ${syncType} failed:`, errorMessage);
+    const isCancelled = errorMessage === 'Sync cancelled' || abortController.signal.aborted;
+
+    console.error(`[Sync] ${syncType} ${isCancelled ? 'cancelled' : 'failed'}:`, errorMessage);
 
     db.prepare("UPDATE sync_history SET status = 'FAILED', error_message = ?, completed_at = datetime('now') WHERE id = ?").run(
-      errorMessage,
+      isCancelled ? 'Cancelled by user' : errorMessage,
       syncHistoryId
     );
 
@@ -228,10 +260,23 @@ async function executeSyncInBackground(
         id: syncHistoryId,
         syncType,
         status: 'FAILED',
-        errorMessage,
+        errorMessage: isCancelled ? 'Cancelled by user' : errorMessage,
       });
     }
+  } finally {
+    // Clean up the abort controller
+    activeSyncs.delete(syncHistoryId);
   }
+}
+
+/**
+ * Convert SQLite UTC datetime to ISO format with Z suffix
+ * SQLite datetime('now') returns 'YYYY-MM-DD HH:MM:SS' in UTC but without timezone marker
+ */
+function toIsoUtc(sqliteDate: string | null | undefined): string | null {
+  if (!sqliteDate) return null;
+  // Replace space with T and add Z to mark as UTC
+  return sqliteDate.replace(' ', 'T') + 'Z';
 }
 
 /**
@@ -265,17 +310,17 @@ export function getStatus(): SyncStatus {
 
   return {
     projects: {
-      lastSync: lastProjects?.completed_at ?? null,
+      lastSync: toIsoUtc(lastProjects?.completed_at),
       lastSyncId: lastProjects?.id ?? null,
       recordsSynced: lastProjects?.records_processed ?? 0,
     },
     opportunities: {
-      lastSync: lastOpportunities?.completed_at ?? null,
+      lastSync: toIsoUtc(lastOpportunities?.completed_at),
       lastSyncId: lastOpportunities?.id ?? null,
       recordsSynced: lastOpportunities?.records_processed ?? 0,
     },
     serviceTickets: {
-      lastSync: lastServiceTickets?.completed_at ?? null,
+      lastSync: toIsoUtc(lastServiceTickets?.completed_at),
       lastSyncId: lastServiceTickets?.id ?? null,
       recordsSynced: lastServiceTickets?.records_processed ?? 0,
     },
@@ -368,6 +413,14 @@ export function cancelSync(syncId: number): { message: string } {
     throw new Error(`Cannot cancel sync with status ${sync.status}`);
   }
 
+  // Abort the running sync if it exists
+  const controller = activeSyncs.get(syncId);
+  if (controller) {
+    console.log(`[Sync] Aborting sync ${syncId}`);
+    controller.abort();
+  }
+
+  // Update database status
   db.prepare("UPDATE sync_history SET status = 'FAILED', error_message = 'Cancelled by user', completed_at = datetime('now') WHERE id = ?").run(
     syncId
   );

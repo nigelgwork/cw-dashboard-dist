@@ -95,6 +95,7 @@ export const SettingDefaults = {
   [SettingKeys.THEME]: 'dark',
   [SettingKeys.DATE_LOOKBACK_DAYS]: '730', // 2 years default
   [SettingKeys.ADAPTIVE_SYNC_ENABLED]: 'true', // Enable adaptive sync by default
+  [SettingKeys.SYNC_LOCATIONS]: 'adelaide', // Default to Adelaide location
 } as const;
 
 /**

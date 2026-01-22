@@ -4,7 +4,6 @@ import { initDatabase } from './database/connection';
 import { registerIpcHandlers } from './ipc/handlers';
 import { initAutoUpdater, checkForUpdates } from './services/auto-updater';
 import { getSetting, setSetting, SettingKeys } from './services/settings';
-import { requestSync } from './services/sync';
 import { autoConnect as autoConnectCloud } from './services/cloud-database';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
@@ -13,7 +12,6 @@ if (require('electron-squirrel-startup')) {
 }
 
 let mainWindow: BrowserWindow | null = null;
-let shouldAutoSync = false; // Flag for auto-sync after version change
 let updateCheckInterval: NodeJS.Timeout | null = null;
 
 const isDev = !app.isPackaged;
@@ -39,25 +37,6 @@ function createWindow(): void {
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
-
-    // Trigger auto-sync after version update (once window is ready to receive events)
-    if (shouldAutoSync && mainWindow) {
-      console.log('[Main] Version changed, triggering automatic sync...');
-      setTimeout(() => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          // Notify frontend that auto-sync is starting due to update
-          mainWindow.webContents.send('app:version-updated', {
-            version: app.getVersion(),
-            message: 'App updated - syncing data...',
-          });
-
-          // Trigger sync for all data types
-          requestSync('ALL', mainWindow).catch((err) => {
-            console.error('[Main] Auto-sync after update failed:', err);
-          });
-        }
-      }, 1500); // Small delay to let frontend initialize
-    }
   });
 
   // Load the app
@@ -90,14 +69,12 @@ app.whenReady().then(async () => {
       console.warn('[Main] Cloud database auto-connect failed:', err);
     });
 
-    // Check if version has changed (for auto-sync after update)
+    // Track version for logging purposes
     const currentVersion = app.getVersion();
     const lastRunVersion = getSetting(SettingKeys.LAST_RUN_VERSION);
 
     if (lastRunVersion !== currentVersion) {
       console.log(`[Main] Version changed: ${lastRunVersion || 'first run'} -> ${currentVersion}`);
-      shouldAutoSync = true;
-      // Update the stored version
       setSetting(SettingKeys.LAST_RUN_VERSION, currentVersion);
     }
 

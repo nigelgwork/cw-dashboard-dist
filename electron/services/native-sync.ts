@@ -31,7 +31,7 @@ interface AtomEntry {
 /**
  * Fetch ATOM feed using Electron's session.fetch (supports Windows Integrated Auth/NTLM)
  */
-export async function fetchAtomFeed(url: string): Promise<string> {
+export async function fetchAtomFeed(url: string, signal?: AbortSignal): Promise<string> {
   console.log(`[NativeSync] Fetching URL (length: ${url.length}):`);
   console.log(`[NativeSync] URL: ${url.substring(0, 500)}${url.length > 500 ? '...' : ''}`);
 
@@ -40,6 +40,7 @@ export async function fetchAtomFeed(url: string): Promise<string> {
     const response = await session.defaultSession.fetch(url, {
       method: 'GET',
       credentials: 'include', // Include Windows credentials for NTLM
+      signal, // Pass abort signal for cancellation
     });
 
     console.log(`[NativeSync] Response status: ${response.status}`);
@@ -290,7 +291,8 @@ function createDetailFeedUrlWithTablix(detailFeedUrl: string, projectId: string,
 export async function syncProjects(
   feedUrl: string,
   syncHistoryId: number,
-  feedId?: number
+  feedId?: number,
+  signal?: AbortSignal
 ): Promise<SyncResult> {
   const db = getDatabase();
 
@@ -328,7 +330,7 @@ export async function syncProjects(
     }
 
     // Fetch the feed
-    const xmlContent = await fetchAtomFeed(dynamicUrl);
+    const xmlContent = await fetchAtomFeed(dynamicUrl, signal);
 
     // Parse entries
     const entries = await parseAtomFeed(xmlContent);
@@ -520,7 +522,8 @@ export async function syncProjects(
  */
 export async function syncOpportunities(
   feedUrl: string,
-  syncHistoryId: number
+  syncHistoryId: number,
+  signal?: AbortSignal
 ): Promise<SyncResult> {
   const db = getDatabase();
 
@@ -537,7 +540,7 @@ export async function syncOpportunities(
     }
 
     // Fetch the feed
-    const xmlContent = await fetchAtomFeed(dynamicUrl);
+    const xmlContent = await fetchAtomFeed(dynamicUrl, signal);
 
     // Parse entries
     const entries = await parseAtomFeed(xmlContent);
@@ -681,7 +684,8 @@ export async function syncOpportunities(
  */
 export async function syncServiceTickets(
   feedUrl: string,
-  syncHistoryId: number
+  syncHistoryId: number,
+  signal?: AbortSignal
 ): Promise<SyncResult> {
   const db = getDatabase();
 
@@ -698,7 +702,7 @@ export async function syncServiceTickets(
     }
 
     // Fetch the feed
-    const xmlContent = await fetchAtomFeed(dynamicUrl);
+    const xmlContent = await fetchAtomFeed(dynamicUrl, signal);
 
     // Parse entries
     const entries = await parseAtomFeed(xmlContent);
