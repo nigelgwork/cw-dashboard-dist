@@ -200,6 +200,7 @@ async function executeSyncInBackground(
     `).run(totalProcessed, totalCreated, totalUpdated, totalUnchanged, syncHistoryId);
 
     if (window) {
+      console.log('[Sync] Sending sync:completed event for', syncType);
       window.webContents.send('sync:completed', {
         id: syncHistoryId,
         syncType,
@@ -208,6 +209,8 @@ async function executeSyncInBackground(
         recordsCreated: totalCreated,
         recordsUpdated: totalUpdated,
       });
+    } else {
+      console.warn('[Sync] No window reference, cannot send sync:completed event');
     }
 
     console.log(`[Sync] ${syncType} completed: ${totalProcessed} processed, ${totalCreated} created, ${totalUpdated} updated`);
@@ -248,6 +251,13 @@ export function getStatus(): SyncStatus {
   const lastServiceTickets = db
     .prepare("SELECT id, completed_at, records_processed FROM sync_history WHERE sync_type = 'SERVICE_TICKETS' AND status = 'COMPLETED' ORDER BY completed_at DESC LIMIT 1")
     .get() as { id: number; completed_at: string; records_processed: number } | undefined;
+
+  // Debug logging
+  console.log('[Sync] getStatus called:', {
+    projects: lastProjects?.completed_at,
+    opportunities: lastOpportunities?.completed_at,
+    serviceTickets: lastServiceTickets?.completed_at,
+  });
 
   const pendingSyncs = db
     .prepare("SELECT id, sync_type, status FROM sync_history WHERE status IN ('PENDING', 'RUNNING')")

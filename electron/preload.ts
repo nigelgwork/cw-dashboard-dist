@@ -718,11 +718,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => {};
     }
 
-    const subscription = (_event: IpcRendererEvent, data: unknown) => callback(data);
+    console.log(`[Preload] Subscribing to event: ${channel}`);
+    const subscription = (_event: IpcRendererEvent, data: unknown) => {
+      console.log(`[Preload] Received event: ${channel}`, data);
+      callback(data);
+    };
     ipcRenderer.on(channel, subscription);
 
     // Return unsubscribe function
     return () => {
+      console.log(`[Preload] Unsubscribing from event: ${channel}`);
       ipcRenderer.removeListener(channel, subscription);
     };
   },
